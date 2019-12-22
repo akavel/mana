@@ -2,11 +2,11 @@
 
 ### Milestone 1
 
-  - [ ] start by preparing 0install xml package for cue (via 0install GUI packaging tool)
+  - [x] start by preparing 0install xml package for cue (via 0install GUI packaging tool)
+  - [x] rename: nnn - "Nnn's Not Nix"
   - [ ] for first milestone do only .vimrc building
   - [ ] start with just cue, no custom Go nor Nim code as long as possible
   - [ ] use 0install for vim plugins downloading (and caching), take paths from cache and use them in .vimrc
-  - [ ] rename: nnn - "Nnn's Not Nix"
 
 ### Milestone 2
 
