@@ -6,8 +6,7 @@ import (
 
 command adopt: {
 	// repository containing copies of files expected to exist in the filesystem
-	//var: shadow: "."
-	var: shadow: "."
+	var: shadow: "shadow"
 
 	// TODO: usage, short, long
 	//task: render: {
@@ -15,11 +14,11 @@ command adopt: {
 	//	filename: "\(shadow)/
 	//}
 	task: {
-		for filename, contents in shadowMap 
-		if contents.kind == "present" {
-			"render \(filename)": file.Create & {
-				filename: "\(var.shadow)/\(filename)",
-				contents: contents.text
+		for f, spec in shadowMap
+		if spec.kind == "present" {
+			"render \(f)": file.Create & {
+				filename: "\(var.shadow)/\(f)",
+				contents: spec.text
 			}
 		}
 	}
