@@ -78,10 +78,6 @@ local function or_die(v, err, ...)
 	return v, err, ...
 end
 
-local function has_prefix(s, prefix)
-	return #s >= #prefix and s:sub(1,#prefix) == prefix
-end
-
 local function exists(ospath)
 	local fh, err = io.open(ospath, 'r')
 	if fh then fh:close() end
