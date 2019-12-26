@@ -167,7 +167,12 @@ function nnn.exec_with(shadowf)
 	-- 'absent' prereqs here, as we don't have enough info; those will be
 	-- checked later.
 	for path in git_lines("ls-files --cached", shadowf) do
-		handler(path).query(path, shadowf)
+		local h = handler(path)
+		if h.exists(path) then
+			h.query(path, shadowf)
+		else
+			os.remove(shadowf(path))  -- don't error if file doesn't exist in repo
+		end
 	end
 	-- Verify that prerequisites match disk contents
 	local iterfiles = git_status(shadowf)

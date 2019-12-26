@@ -2,6 +2,7 @@ local nnn = require 'nnn'
 -- TODO: nnn.handle('c', ...)
 nnn.handle(require 'nnn.winfs')
 -- TODO: nnn.handle('path', require 'nnn.winpath') -- with refreshenv support copied from chocolatey
+nnn.handle(require 'nnn.winpath')
 -- TODO: nnn.handle('0install', require 'nnn.zeroinstall')
 -- TODO: nnn.handle('choco', require 'nnn.chocolatey')
 
@@ -21,6 +22,8 @@ for name, text in pairs(oneliners) do
 	-- TODO: make this work correctly on Linux/Mac
 	nnn.wanted["c/bin/" .. name .. ".bat"] = "@" .. text .. " %*"
 end
+
+nnn.wanted["path/user/c/bin"] = ""
 
 -- Execute --
 local winfs = require 'nnn.winfs'
