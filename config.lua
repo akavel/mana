@@ -22,7 +22,7 @@ local nnn = {
 	-- is provided
 	oscopy = function(p1, p2)
 		-- TODO: use rsync if possible
-		os.execute("copy /b /y " .. p1 .. " " .. p2)
+		assert(os.execute("copy /b /y " .. p1 .. " " .. p2))
 	end,
 	-- osmkdir should create directory at specified OS path
 	osmkdir = function(path)
@@ -71,6 +71,20 @@ end
 
 local function has_prefix(s, prefix)
 	return #s >= #prefix and s:sub(1,#prefix) == prefix
+end
+
+local function exists(ospath)
+	local fh, err = os.open(ospath, 'r')
+	if fh then fh:close() end
+	return not not fh
+end
+-- mkdir_for creates all parent directories required for gitpath file
+local function mkdir_for(gitpath)
+	local subdir = ""
+	for d in gitpath:gmatch "([^/]+)/" do
+		subdir = subdir .. '/' .. d
+		nnn.osmkdir(nnn.ospath(subdir:sub(2)))
+	end
 end
 
 local function assert_gitpath(s)
@@ -127,12 +141,7 @@ local function parse_args(arg)
 end
 
 local function write_file(relpath, contents, config)
-	-- mkdir -p $SHADOW/$(dirname relpath)
-	local subdir = ""
-	for d in relpath:gmatch "([^/]+)/" do
-		subdir = subdir .. '/' .. d
-		nnn.osmkdir(nnn.ospath(config.shadow .. subdir))
-	end
+	mkdir_for(config.shadow .. '/' .. relpath)
 	-- TODO: support binary files
 	local fh = assert(io.open(nnn.ospath(config.shadow .. '/' .. relpath), 'w'))
 	assert(fh:write(contents))
@@ -280,15 +289,32 @@ local function main(arg)
 			write_file(k, v, config)
 		end
 	end
-	-- TODO: for new files, verify they are absent on disk
+	-- For new files, verify they are absent on disk
+	local files = or_die(git_status(config.shadow))
+	for _, f in ipairs(files) do
+		if f.status == '?' and exists(nnn.ospath(f.path)) then
+			die("file expected absent, but found on disk: " .. f.path)
+		end
+	end
 
-	-- TODO: want()      # exec `git add` & `git rm` commands in $SHADOW dir, BUT NO `git add/rm/commit`
-	-- TODO: git status -C $SHADOW --untracked-only --no-gitignore | foreach line; do [ ! -f "$(winpath "$line")" ] || die "Real file present, expected absent"; done
-	-- TODO: git diff --raw --include-untracked | foreach line; do \
-	--      case line.action in
-	--	added|modified) copy "$SHADOW/$line" "$(winpath "$line")"; git add "$SHADOW/$line";;  # TODO: s/copy/rsync
-	--      removed) del "$(winpath "$line")"; git rm "$SHADOW/$line";;
-	--      esac
+	-- Render files to their places on disk!
+	local files = or_die(git_status(config.shadow))
+	for _, f in ipairs(files) do
+		if f.status == '?' then
+			mkdir_for(config.shadow .. '/' .. f.path)
+		end
+		if f.status == '?' or f.status == 'M' then
+			nnn.oscopy(nnn.ospath(config.shadow .. '/' .. f.path), nnn.ospath(f.path))
+			git("add -- " .. f.path, config)
+		elseif f.status == 'D' then
+			assert(os.remove(nnn.ospath(f.path)))
+			git("rm -- " .. f.path, config)
+		else
+			die(('unexpected status %q of file in shadow repo: %s'):format(f.status, f.path))
+		end
+	end
+	-- Finalize the deployment
+	git('commit -m "deployed" --allow-empty', config)
 end
 
 -- FIXME: require -s flag, or set it to some default value
