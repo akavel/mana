@@ -76,7 +76,7 @@ local function assert_gitpath(s)
 	local function assert_no(pattern, msg)
 		local from, to = s:find(pattern)
 		if from then
-			error(("%s: found %q at offset %d in path: %q"):(msg, s:sub(from,to), from, s))
+			error(("%s: found %q at offset %d in path: %q"):format(msg, s:sub(from,to), from, s))
 		end
 	end
 	-- FIXME: also sanitize other Windows-specific stuff, like 'nul' or 'con' in filenames
@@ -139,7 +139,7 @@ end
 
 local function git_lines(argline, config)
 	-- FIXME: verify no spaces in 'shadow' path, or otherwise handle it correctly in popen call
-	local cmd = "git -C " .. nnn.ospath(shadow) .. " " .. argline
+	local cmd = "git -C " .. nnn.ospath(config.shadow) .. " " .. argline
 	local pipe = assert(io.popen(cmd))
 	local function iter(pipe)
 		local line, err = pipe:read '*l'
@@ -260,7 +260,7 @@ local function main(arg)
 
 	-- Commit the prerequisites
 	-- FIXME: maybe remove --allow-empty, but then skip if `git status` is empty
-	git('commit -m "prerequisites" --allow-empty')
+	git('commit -m "prerequisites" --allow-empty', config)
 
 	-- Render wanted files
 	for k, v in pairs(nnn.files) do
