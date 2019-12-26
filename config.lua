@@ -22,8 +22,14 @@ end
 -- TODO: move the stuff below to proper "nnn" --
 ------------------------------------------------
 
--- TODO: option `-f config.lua` (default)
--- TODO: option `-s shadow` - path to the shadow repo
+-- check if v is non-nil, or print error and exit the app
+local function check(v, err, ...)
+	if not v then
+		io.stderr:write('error: ', err, '\n')
+		os.exit(1)
+	end
+	return v, err, ...
+end
 
 -- git_status returns a list of files in the shadow repository that have
 -- differences between the working tree and the staging area ("index file"),
@@ -34,8 +40,9 @@ end
 --
 -- TODO: support whitespace and other nonprintable characters without error
 -- TODO: LATER make it return an iterator
-local function git_status()
-	local pipe, err = io.popen("git status --porcelain -uall --ignored --no-renames")
+local function git_status(shadow)
+	-- FIXME: verify no spaces in 'shadow' path, or otherwise handle it correctly in popen call
+	local pipe, err = io.popen("git -C " .. shadow .. " status --porcelain -uall --ignored --no-renames")
 	if not pipe then
 		return nil, err
 	end
@@ -83,8 +90,37 @@ local function want()
 	end
 end
 
-local function main()
-	local files = assert(git_status())
+local function parse_args(arg)
+	local config = {}
+	local i = 1
+	while true do
+		local flag = arg[i]
+		if not flag then
+			break
+		elseif flag == '-s' then
+			i = i + 1
+			config.shadow = arg[i]
+			if not config.shadow then
+				return nil, ('missing argument after flag -s, expected path to shadow repository')
+			end
+		else
+			return nil, ('unknown flag: %s'):format(flag)
+		end
+		i = i + 1
+	end
+	return config
+end
+
+local function main(arg)
+	-- TODO: option `-f config.lua` (default)
+	-- TOOD: if shadow directory does not exist, do `mkdir -p` and `git init` for it
+
+	local config = check(parse_args(arg))
+	if not config.shadow then
+		check(nil, "missing mandatory flag -s")
+	end
+
+	local files = check(git_status(config.shadow))
 	for _, f in ipairs(files) do
 		print(f.status, f.path)
 	end
@@ -101,5 +137,8 @@ local function main()
 	--      esac
 end
 
-main()
+-- FIXME: require -s flag, or set it to some default value
+main({
+	"-s", "c:\\prog\\shadow"
+})
 
