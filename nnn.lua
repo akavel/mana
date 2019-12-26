@@ -20,6 +20,10 @@ local nnn = {
 	end,
 }
 
+local function errorf(msg, ...)
+	error(msg:format(...))
+end
+
 local function write_file(ospath, contents)
 	-- TODO: remove dependency on osmkdirp
 	nnn.osmkdirp(ospath)
@@ -32,12 +36,12 @@ end
 
 local function assert_gitpath(s)
 	if #s == 0 then
-		error("empty path")
+		errorf("empty path")
 	end
 	local function assert_no(pattern, msg)
 		local from, to = s:find(pattern)
 		if from then
-			error(("%s: found %q at offset %d in path: %q"):format(msg, s:sub(from,to), from, s))
+			errorf("%s: found %q at offset %d in path: %q", msg, s:sub(from,to), from, s)
 		end
 	end
 	-- FIXME: also sanitize other Windows-specific stuff, like 'nul' or 'con' in filenames
@@ -96,21 +100,21 @@ local function git_status(shadowf)
 			if not line then
 				return nil  -- finish
 			elseif #line < 4 then
-				error(('line from git status too short: %q'):format(line))
+				errorf('line from git status too short: %q', line)
 			elseif line:sub(4,4) == '"' then
 				-- TODO: support space & special chars: "If a filename contains
 				-- whitespace or other nonprintable characters, that field will
 				-- be quoted in the manner of a C string literal: surrounded by
 				-- ASCII double quote (34) characters, and with interior
 				-- special characters backslash-escaped."
-				error(('whitespace and special characters not yet supported in paths: %s'):format(line:sub(4)))
+				errorf('whitespace and special characters not yet supported in paths: %s', line:sub(4))
 			end
 			local f = {
 				status = line:sub(2,2),
 				path = line:sub(4),
 			}
 			if not (' MAD?'):find(f.status, 1, true) then
-				error(('unexpected status %q from git in line: %q'):format(f.status, line))
+				errorf('unexpected status %q from git in line: %q', f.status, line)
 			end
 			if f.status ~= ' ' then
 				return f
@@ -125,7 +129,7 @@ local function handler(path)
 			return h
 		end
 	end
-	error(('no handler found for path: %q'):format(path))
+	errorf('no handler found for path: %q', path)
 end
 
 
@@ -145,7 +149,7 @@ function nnn.exec_with(shadowf)
 	-- Verify shadow repo is clean
 	local iterfiles = git_status(shadowf)
 	if iterfiles() then
-		error(("shadow git repo not clean: %s"):format(shadowf()))
+		errorf("shadow git repo not clean: %s", shadowf())
 	end
 
 	-- Stage the prerequisites in the git repo
@@ -171,7 +175,7 @@ function nnn.exec_with(shadowf)
 	-- Verify that prerequisites match disk contents
 	local iterfiles = git_status(shadowf)
 	if iterfiles() then
-		error(("real disk contents differ from expected prerequisites; check git diff in shadow repo: %s"):format(shadowf()))
+		errorf("real disk contents differ from expected prerequisites; check git diff in shadow repo: %s", shadowf())
 	end
 
 	-- Commit the prerequisites
@@ -196,7 +200,7 @@ function nnn.exec_with(shadowf)
 	-- For new files, verify they are absent on disk
 	for f in git_status(shadowf) do
 		if f.status == '?' and handler(f.path).exists(f.path) then
-			error("file expected absent, but found on disk: " .. f.path)
+			errorf("file expected absent, but found on disk: %s", f.path)
 		end
 	end
 
@@ -209,15 +213,13 @@ function nnn.exec_with(shadowf)
 			handler(f.path).apply(f.path, shadowf) -- TODO: must `rm` if absent in git
 			git("rm -- " .. f.path, shadowf)
 		else
-			error(('unexpected status %q of file in shadow repo: %s'):format(f.status, f.path))
+			errorf('unexpected status %q of file in shadow repo: %s', f.status, f.path)
 		end
 	end
 
 	-- Finalize the deployment
 	git('commit -m "deployment" --allow-empty', shadowf)
 end
-
--- TODO: errorf helper func
 
 return nnn
 
