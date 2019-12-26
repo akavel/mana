@@ -1,8 +1,29 @@
 -- TODO: move this block into `require "nnn"`, maybe
 local nnn = {
+	absent = {},  -- special tag value for marking absent files
+
+	-- below values should be filled by user
+
 	prereqs = {},
 	files = {},
-	absent = {},  -- special tag value for marking absent files
+	-- ospath should be function translating a git relative path to
+	-- absolute path in user's OS; currently, example handler for Windows
+	-- OS is provided
+	ospath = function(path)
+		if #path < 3 then
+			error(('path too short for Windows, must be "<DISK>/<RELPATH>", got: %q'):format(path))
+		elseif path:sub(2,2) ~= '/' then
+			error(('path must specify disk for Windows, must be "<DISK>/<RELPATH>", got: %q'):format(path))
+		end
+		return path:sub(1,1) .. ":\\" .. path:sub(3):gsub("/", "\\")
+	end,
+	-- oscopy should invoke operating system's copy function to copy file
+	-- from p1 to p2 (OS paths); currently, example handler for Windows OS
+	-- is provided
+	oscopy = function(p1, p2)
+		-- TODO: use rsync if possible
+		os.execute("copy /b /y " .. p1 .. " " .. p2)
+	end,
 }
 
 local bin = "c/bin"
@@ -91,7 +112,7 @@ local function parse_args(arg)
 			i = i + 1
 			config.shadow = arg[i]
 			if not config.shadow then
-				return nil, ('missing argument after flag -s, expected path to shadow repository')
+				return nil, ('missing argument after flag -s, expected path to shadow repository in "git-like" format')
 			end
 		else
 			return nil, ('unknown flag: %s'):format(flag)
@@ -104,7 +125,7 @@ end
 local function write_file(relpath, contents, config)
 	-- TODO: mkdir -p $SHADOW/$(dirname relpath)
 	-- TODO: support binary files
-	local fh = assert(io.open(config.shadow .. '/' .. relpath, 'w'))
+	local fh = assert(io.open(nnn.ospath(config.shadow .. '/' .. relpath), 'w'))
 	assert(fh:write(contents))
 	-- TODO: can below line return error in Lua?
 	fh:close()
@@ -112,7 +133,24 @@ end
 
 local function git(argline, config)
 	-- FIXME: hide output, etc.
-	assert(os.execute("git -C " .. config.shadow .. " " .. argline))
+	-- FIXME: verify no spaces in 'shadow' path, or otherwise handle it correctly in popen call
+	assert(os.execute("git -C " .. nnn.ospath(config.shadow) .. " " .. argline))
+end
+
+local function git_lines(argline, config)
+	-- FIXME: verify no spaces in 'shadow' path, or otherwise handle it correctly in popen call
+	local cmd = "git -C " .. nnn.ospath(shadow) .. " " .. argline
+	local pipe = assert(io.popen(cmd))
+	local function iter(pipe)
+		local line, err = pipe:read '*l'
+		if err and not line then
+			error(err .. " when running: " .. cmd)
+		elseif not line then
+			pipe:close()
+		end
+		return line
+	end
+	return iter, pipe
 end
 
 -- git_status returns a list of files in the shadow repository that have
@@ -126,7 +164,7 @@ end
 -- TODO: LATER make it return an iterator
 local function git_status(shadow)
 	-- FIXME: verify no spaces in 'shadow' path, or otherwise handle it correctly in popen call
-	local pipe, err = io.popen("git -C " .. shadow .. " status --porcelain -uall --ignored --no-renames")
+	local pipe, err = io.popen("git -C " .. nnn.ospath(shadow) .. " status --porcelain -uall --ignored --no-renames")
 	if not pipe then
 		return nil, err
 	end
@@ -206,14 +244,20 @@ local function main(arg)
 		end
 	end
 
-	-- For each prerequisite, fetch corresponding file from disk into
-	-- shadow repo, so that we can later easily compare them for
-	-- differences. NOTE: we can't account for 'absent' prereqs here, as we
-	-- don't have enough info; those will be checked later.
+	-- For each prerequisite (i.e., "git add/rm"-ed file), fetch
+	-- corresponding file from disk into shadow repo, so that we can later
+	-- easily compare them for differences. NOTE: we can't account for
+	-- 'absent' prereqs here, as we don't have enough info; those will be
+	-- checked later.
+	for path in git_lines("ls-files --cached", config) do
+		nnn.oscopy(nnn.ospath(path), nnn.ospath(config.shadow .. "/" .. path))
+	end
+	-- Verify that prerequisites match disk contents
+	local files = or_die(git_status(config.shadow))
+	if #files > 0 then
+		die(("real disk contents differ from expected prerequisites; check git diff in shadow repo: %s"):format(config.shadow))
+	end
 
-	-- TODO: prereqs()   # exec `git add` & `git rm` commands in $SHADOW dir, then `git commit`, then create git ref "nnn/prereqs"
-	-- TODO: git manifest refs/nnn/prereqs | foreach line; do copy "$(winpath "$line")" "$SHADOW/$line"; done  # TODO: s/copy/rsync
-	-- TODO: git status -C $SHADOW --untracked --no-gitignore || die "Shadow tree git repo not clean on prereqs check"
 	-- TODO: want()      # exec `git add` & `git rm` commands in $SHADOW dir, BUT NO `git add/rm/commit`
 	-- TODO: git status -C $SHADOW --untracked-only --no-gitignore | foreach line; do [ ! -f "$(winpath "$line")" ] || die "Real file present, expected absent"; done
 	-- TODO: git diff --raw --include-untracked | foreach line; do \
@@ -225,6 +269,6 @@ end
 
 -- FIXME: require -s flag, or set it to some default value
 main({
-	"-s", "c:\\prog\\shadow"
+	"-s", "c/prog/shadow"
 })
 
