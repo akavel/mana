@@ -22,7 +22,9 @@ local nnn = {
 	-- is provided
 	oscopy = function(p1, p2)
 		-- TODO: use rsync if possible
-		assert(os.execute("copy /b /y " .. p1 .. " " .. p2))
+		local cmd = "copy /b /y " .. p1 .. " " .. p2
+		io.stdout:write('# ' .. cmd .. '\n')
+		assert(os.execute(cmd))
 	end,
 	-- osmkdirp should create all parent directories leading to the
 	-- specified OS path. This should be equivalent to Linux command:
@@ -81,7 +83,7 @@ local function has_prefix(s, prefix)
 end
 
 local function exists(ospath)
-	local fh, err = os.open(ospath, 'r')
+	local fh, err = io.open(ospath, 'r')
 	if fh then fh:close() end
 	return not not fh
 end
@@ -300,7 +302,7 @@ local function main(arg)
 	local files = or_die(git_status(config.shadow))
 	for _, f in ipairs(files) do
 		if f.status == '?' then
-			nnn.osmkdirp(nnn.ospath(config.shadow .. '/' .. f.path))
+			nnn.osmkdirp(nnn.ospath(f.path))
 		end
 		if f.status == '?' or f.status == 'M' then
 			nnn.oscopy(nnn.ospath(config.shadow .. '/' .. f.path), nnn.ospath(f.path))
@@ -313,7 +315,7 @@ local function main(arg)
 		end
 	end
 	-- Finalize the deployment
-	git('commit -m "deployed" --allow-empty', config)
+	git('commit -m "deployment" --allow-empty', config)
 end
 
 -- FIXME: require -s flag, or set it to some default value
