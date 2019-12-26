@@ -5,6 +5,10 @@ nnn.handle(require 'nnn.winfs')
 nnn.handle(require 'nnn.winpath')
 -- TODO: nnn.handle('0install', require 'nnn.zeroinstall')
 -- TODO: nnn.handle('choco', require 'nnn.chocolatey')
+-- TODO: nnn.handle('home', ...)
+nnn.handle(require 'nnn.winhome')
+
+require 'vimrc'
 
 -- One-line scripts (~aliases)
 local oneliners = {

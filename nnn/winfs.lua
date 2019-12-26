@@ -15,12 +15,7 @@ function winfs.query(path, shadowf)
 end
 
 function winfs.apply(path, shadowf)
-	if winfs.osexists(shadowf(path)) then
-		winfs.mkdirp(winfs.ospath(path))
-		winfs.copy(shadowf(path), winfs.ospath(path))
-	else
-		assert(os.remove(winfs.ospath(path)))
-	end
+	winfs.osapply(winfs.ospath(path), shadowf(path))
 end
 
 -- winfs.ospath is a helper which translates a git relative path to absolute
@@ -38,6 +33,18 @@ function winfs.osexists(ospath)
 		fh:close()
 	end
 	return not not fh
+end
+
+-- winfs.osapply is a helper for applying files which can be
+-- reused by other Windows file-based nnn plugins.
+function winfs.osapply(ospath, shadowpath)
+	if winfs.osexists(shadowpath) then
+		winfs.mkdirp(ospath)
+		winfs.copy(shadowpath, ospath)
+	else
+		assert(os.remove(ospath))
+		-- TODO: remove parent directories if empty
+	end
 end
 
 -- winfs.copy is a helper copying a file on disk from p1 to p2
