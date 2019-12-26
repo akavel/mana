@@ -5,11 +5,7 @@ function winfs.owns(path)
 end
 
 function winfs.exists(path)
-	local fh, err = io.open(winfs.ospath(path), 'r')
-	if fh then
-		fh:close()
-	end
-	return not not fh
+	return winfs.osexists(winfs.ospath(path))
 end
 
 -- winfs.query invokes copy command to copy file from filesystem into specified
@@ -19,7 +15,7 @@ function winfs.query(path, shadowf)
 end
 
 function winfs.apply(path, shadowf)
-	if winfs.exists(shadowf(path)) then
+	if winfs.osexists(shadowf(path)) then
 		winfs.mkdirp(winfs.ospath(path))
 		winfs.copy(shadowf(path), winfs.ospath(path))
 	else
@@ -34,6 +30,14 @@ function winfs.ospath(path)
 		error(('path not valid for Windows, must be "<DISK>/<RELPATH>", got: %q'):format(path))
 	end
 	return path:sub(1,1) .. ":\\" .. path:sub(3):gsub("/", "\\")
+end
+
+function winfs.osexists(ospath)
+	local fh, err = io.open(ospath, 'r')
+	if fh then
+		fh:close()
+	end
+	return not not fh
 end
 
 -- winfs.copy is a helper copying a file on disk from p1 to p2
