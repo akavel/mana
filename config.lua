@@ -281,11 +281,17 @@ local function main(arg)
 	-- FIXME: maybe remove --allow-empty, but then skip if `git status` is empty
 	git('commit -m "prerequisites" --allow-empty', config)
 
+	-- Any files in git but not in wanted should be removed
+	for path in git_lines("ls-tree --name-only -r HEAD", config) do
+		if not nnn.files[path] then
+			nnn.files[path] = nnn.absent
+		end
+	end
 	-- Render wanted files
 	for k, v in pairs(nnn.files) do
 		assert_gitpath(k)
 		if v == nnn.absent then
-			assert(os.remove(nnn.ospath(config.shadow .. '/' .. v)))
+			assert(os.remove(nnn.ospath(config.shadow .. '/' .. k)))
 		else
 			write_file(k, v, config)
 		end
