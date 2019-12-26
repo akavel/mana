@@ -1,6 +1,11 @@
 -- TODO: move this block into `require "nnn"`, maybe
-local files = {}
-local bin = "c:\\bin"
+local nnn = {
+	prereqs = {},
+	files = {},
+	absent = {},  -- special tag value for marking absent files
+}
+
+local bin = "c/bin"
 
 local oneliners = {
 	gd = "git diff";
@@ -14,21 +19,100 @@ local oneliners = {
 -- Render oneliners to full files
 for name, text in pairs(oneliners) do
 	if os == "windows" then
-		files[bin .. "\\" .. name .. ".bat"] = "@" .. text .. " %*"
+		nnn.files[bin .. "/" .. name .. ".bat"] = "@" .. text .. " %*"
 	end
 end
 
-------------------------------------------------
--- TODO: move the stuff below to proper "nnn" --
-------------------------------------------------
+----------------------------------------------------
+-- TODO: move the stuff below to proper "nnn.lua" --
+----------------------------------------------------
 
--- check if v is non-nil, or print error and exit the app
-local function check(v, err, ...)
+---------------------------------------
+-- more or less generic helper funcs --
+---------------------------------------
+
+-- die prints err on stderr and exits the app
+local function die(err)
+	io.stderr:write('error: ', err, '\n')
+	os.exit(1)
+end
+-- or_die returns all args if v is not nil; otherwise, prints err and exits the app
+local function or_die(v, err, ...)
 	if not v then
-		io.stderr:write('error: ', err, '\n')
-		os.exit(1)
+		die(err)
 	end
 	return v, err, ...
+end
+
+local function has_prefix(s, prefix)
+	return #s >= #prefix and s:sub(1,#prefix) == prefix
+end
+
+local function assert_gitpath(s)
+	if #s == 0 then
+		error("empty path")
+	end
+	local function assert_no(pattern, msg)
+		local from, to = s:find(pattern)
+		if from then
+			error(("%s: found %q at offset %d in path: %q"):(msg, s:sub(from,to), from, s))
+		end
+	end
+	-- FIXME: also sanitize other Windows-specific stuff, like 'nul' or 'con' in filenames
+	-- FIXME: properly handle case-insensitive filesystems (Windows, Mac?)
+	assert_no("[^%w_-/.]", "TODO: unsupported character")
+	-- FIXME: actually *require* absolute paths, then de-absolutize them
+	assert_no("^/", "absolute path")
+	assert_no("/../", "relative path")
+	assert_no("^../", "relative path")
+	assert_no("/..$", "relative path")
+	assert_no("^..$", "relative path")
+	assert_no("/./", "denormalized path")
+	assert_no("^./", "denormalized path")
+	assert_no("/.$", "denormalized path")
+	assert_no("^.$", "denormalized path")
+	assert_no("/$", "trailing slash")
+	assert_no("//", "duplicate slash")
+end
+
+
+-------------------------------
+-- app-specific helper funcs --
+-------------------------------
+
+local function parse_args(arg)
+	local config = {}
+	local i = 1
+	while true do
+		local flag = arg[i]
+		if not flag then
+			break
+		elseif flag == '-s' then
+			i = i + 1
+			config.shadow = arg[i]
+			if not config.shadow then
+				return nil, ('missing argument after flag -s, expected path to shadow repository')
+			end
+		else
+			return nil, ('unknown flag: %s'):format(flag)
+		end
+		i = i + 1
+	end
+	return config
+end
+
+local function write_file(relpath, contents, config)
+	-- TODO: mkdir -p $SHADOW/$(dirname relpath)
+	-- TODO: support binary files
+	local fh = assert(io.open(config.shadow .. '/' .. relpath, 'w'))
+	assert(fh:write(contents))
+	-- TODO: can below line return error in Lua?
+	fh:close()
+end
+
+local function git(argline, config)
+	-- FIXME: hide output, etc.
+	assert(os.execute("git -C " .. config.shadow .. " " .. argline))
 end
 
 -- git_status returns a list of files in the shadow repository that have
@@ -73,7 +157,7 @@ local function git_status(shadow)
 			status = line:sub(2,2),
 			path = line:sub(4),
 		}
-		if not (' MAD?'):find(f.status) then
+		if not (' MAD?'):find(f.status, 1, true) then
 			pipe:close()
 			return nil, ('unexpected status %q from git in line: %q'):format(f.status, line)
 		end
@@ -90,41 +174,43 @@ local function want()
 	end
 end
 
-local function parse_args(arg)
-	local config = {}
-	local i = 1
-	while true do
-		local flag = arg[i]
-		if not flag then
-			break
-		elseif flag == '-s' then
-			i = i + 1
-			config.shadow = arg[i]
-			if not config.shadow then
-				return nil, ('missing argument after flag -s, expected path to shadow repository')
-			end
-		else
-			return nil, ('unknown flag: %s'):format(flag)
-		end
-		i = i + 1
-	end
-	return config
-end
+----------
+-- main --
+----------
 
 local function main(arg)
 	-- TODO: option `-f config.lua` (default)
 	-- TOOD: if shadow directory does not exist, do `mkdir -p` and `git init` for it
 
-	local config = check(parse_args(arg))
+	-- Parse flags
+	local config = or_die(parse_args(arg))
 	if not config.shadow then
-		check(nil, "missing mandatory flag -s")
+		die("missing mandatory flag -s")
 	end
 
-	local files = check(git_status(config.shadow))
-	for _, f in ipairs(files) do
-		print(f.status, f.path)
+	-- Verify shadow repo is clean
+	local files = or_die(git_status(config.shadow))
+	if #files > 0 then
+		die(("shadow git repo not clean: %s"):format(config.shadow))
 	end
-	-- TODO: git status -C $SHADOW --untracked --no-gitignore || die "Shadow tree git repo not clean on init"
+
+	-- Stage the prerequisites in the git repo
+	for k, v in pairs(nnn.prereqs) do
+		assert_gitpath(k)
+		if v == nnn.absent then
+			-- FIXME: don't error if file does not exist in shadow repo
+			git("rm -- " .. k, config)
+		else
+			write_file(k, v, config)
+			git("add -- " .. k, config)
+		end
+	end
+
+	-- For each prerequisite, fetch corresponding file from disk into
+	-- shadow repo, so that we can later easily compare them for
+	-- differences. NOTE: we can't account for 'absent' prereqs here, as we
+	-- don't have enough info; those will be checked later.
+
 	-- TODO: prereqs()   # exec `git add` & `git rm` commands in $SHADOW dir, then `git commit`, then create git ref "nnn/prereqs"
 	-- TODO: git manifest refs/nnn/prereqs | foreach line; do copy "$(winpath "$line")" "$SHADOW/$line"; done  # TODO: s/copy/rsync
 	-- TODO: git status -C $SHADOW --untracked --no-gitignore || die "Shadow tree git repo not clean on prereqs check"
