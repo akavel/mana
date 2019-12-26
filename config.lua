@@ -258,6 +258,21 @@ local function main(arg)
 		die(("real disk contents differ from expected prerequisites; check git diff in shadow repo: %s"):format(config.shadow))
 	end
 
+	-- Commit the prerequisites
+	-- FIXME: maybe remove --allow-empty, but then skip if `git status` is empty
+	git('commit -m "prerequisites" --allow-empty')
+
+	-- Render wanted files
+	for k, v in pairs(nnn.files) do
+		assert_gitpath(k)
+		if v == nnn.absent then
+			assert(os.remove(nnn.ospath(config.shadow .. '/' .. v)))
+		else
+			write_file(k, v, config)
+		end
+	end
+	-- TODO: for new files, verify they are absent on disk
+
 	-- TODO: want()      # exec `git add` & `git rm` commands in $SHADOW dir, BUT NO `git add/rm/commit`
 	-- TODO: git status -C $SHADOW --untracked-only --no-gitignore | foreach line; do [ ! -f "$(winpath "$line")" ] || die "Real file present, expected absent"; done
 	-- TODO: git diff --raw --include-untracked | foreach line; do \
