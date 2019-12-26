@@ -46,7 +46,7 @@ local oneliners = {
 	gds = "git diff --staged";
 	gs = "git status";
 	gf = "git fetch --all";
-	glg = "git log --graph \"--pretty=format:%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr %cd) %C(cyan)%an%Creset\" \"--date=format:'%d.%m\" --abbrev-commit";
+	glg = "git log --graph \"--pretty=format:%%Cred%%h%%Creset -%%C(yellow)%%d%%Creset %%s %%Cgreen(%%cr %%cd) %%C(cyan)%%an%%Creset\" \"--date=format:'%%d.%%m\" --abbrev-commit";
 	gl = "glg --all";
 }
 
@@ -225,19 +225,16 @@ local function git_status(shadow)
 	return files
 end
 
-local function want()
-	for path, contents in pairs(files) do
-
-	end
-end
-
 ----------
 -- main --
 ----------
 
+-- TODO: refactor: s/nnn.files/nnn.wanted
+
 local function main(arg)
 	-- TODO: option `-f config.lua` (default)
-	-- TOOD: if shadow directory does not exist, do `mkdir -p` and `git init` for it
+	-- TODO: if shadow directory does not exist, do `mkdir -p` and `git init` for it
+	-- TODO: allow "dry run" - to verify what would be done/changed on disk (stop before rendering files to disk)
 
 	-- Parse flags
 	local config = or_die(parse_args(arg))
@@ -320,6 +317,7 @@ local function main(arg)
 			die(('unexpected status %q of file in shadow repo: %s'):format(f.status, f.path))
 		end
 	end
+
 	-- Finalize the deployment
 	git('commit -m "deployment" --allow-empty', config)
 end
