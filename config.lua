@@ -24,9 +24,16 @@ local nnn = {
 		-- TODO: use rsync if possible
 		assert(os.execute("copy /b /y " .. p1 .. " " .. p2))
 	end,
-	-- osmkdir should create directory at specified OS path
-	osmkdir = function(path)
-		os.execute("mkdir " .. path)
+	-- osmkdirp should create all parent directories leading to the
+	-- specified OS path. This should be equivalent to Linux command:
+	-- `mkdir -p "$(dirname "$path")"`
+	osmkdirp = function(path)
+		local iter = path:gmatch "([^\\]+)\\"
+		local parent = iter()  -- "C:" or similar
+		for d in iter do
+			parent = parent .. '\\' .. d
+			os.execute("mkdir " .. parent)
+		end
 	end,
 }
 
@@ -77,14 +84,6 @@ local function exists(ospath)
 	local fh, err = os.open(ospath, 'r')
 	if fh then fh:close() end
 	return not not fh
-end
--- mkdir_for creates all parent directories required for gitpath file
-local function mkdir_for(gitpath)
-	local subdir = ""
-	for d in gitpath:gmatch "([^/]+)/" do
-		subdir = subdir .. '/' .. d
-		nnn.osmkdir(nnn.ospath(subdir:sub(2)))
-	end
 end
 
 local function assert_gitpath(s)
@@ -141,7 +140,7 @@ local function parse_args(arg)
 end
 
 local function write_file(relpath, contents, config)
-	mkdir_for(config.shadow .. '/' .. relpath)
+	nnn.osmkdirp(nnn.ospath(config.shadow .. '/' .. relpath))
 	-- TODO: support binary files
 	local fh = assert(io.open(nnn.ospath(config.shadow .. '/' .. relpath), 'w'))
 	assert(fh:write(contents))
@@ -301,7 +300,7 @@ local function main(arg)
 	local files = or_die(git_status(config.shadow))
 	for _, f in ipairs(files) do
 		if f.status == '?' then
-			mkdir_for(config.shadow .. '/' .. f.path)
+			nnn.osmkdirp(nnn.ospath(config.shadow .. '/' .. f.path))
 		end
 		if f.status == '?' or f.status == 'M' then
 			nnn.oscopy(nnn.ospath(config.shadow .. '/' .. f.path), nnn.ospath(f.path))
