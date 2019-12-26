@@ -8,16 +8,9 @@ local nnn = {
 	wanted = {},
 	-- osmkdirp should create all parent directories leading to the
 	-- specified OS path. This should be equivalent to Linux command:
-	-- `mkdir -p "$(dirname "$path")"`; currently, example handler for
-	-- Windows OS is provided
-	osmkdirp = function(path)
-		local iter = path:gmatch "([^\\]+)\\"
-		local parent = iter()  -- "C:" or similar
-		for d in iter do
-			parent = parent .. '\\' .. d
-			os.execute("mkdir " .. parent)
-		end
-	end,
+	-- 
+	--   $ mkdir -p "$(dirname "$ospath")"
+	osmkdirp = function(ospath) error("please provide nnn.osmkdirp") end,
 }
 
 local function errorf(msg, ...)
@@ -138,6 +131,10 @@ end
 -- TODO: nnn.handler(require 'nnn.winpath') -- with refreshenv support copied from chocolatey
 -- TODO: nnn.handler(require 'nnn.zeroinstall')
 -- TODO: nnn.handler(require 'nnn.chocolatey')
+
+function nnn.handle(handler)
+	nnn.handlers[#nnn.handlers+1] = handler
+end
 
 -- NOTE: shadowf must be a function converting a slash-separated relative path
 -- to an absolute path in 'shadow' git repository; it must return path to git
