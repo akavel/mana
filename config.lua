@@ -24,6 +24,10 @@ local nnn = {
 		-- TODO: use rsync if possible
 		os.execute("copy /b /y " .. p1 .. " " .. p2)
 	end,
+	-- osmkdir should create directory at specified OS path
+	osmkdir = function(path)
+		os.execute("mkdir " .. path)
+	end,
 }
 
 local bin = "c/bin"
@@ -39,9 +43,9 @@ local oneliners = {
 
 -- Render oneliners to full files
 for name, text in pairs(oneliners) do
-	if os == "windows" then
+	-- if os == "windows" then
 		nnn.files[bin .. "/" .. name .. ".bat"] = "@" .. text .. " %*"
-	end
+	-- end
 end
 
 ----------------------------------------------------
@@ -81,17 +85,17 @@ local function assert_gitpath(s)
 	end
 	-- FIXME: also sanitize other Windows-specific stuff, like 'nul' or 'con' in filenames
 	-- FIXME: properly handle case-insensitive filesystems (Windows, Mac?)
-	assert_no("[^%w_-/.]", "TODO: unsupported character")
+	assert_no("[^%w_/.-]", "TODO: unsupported character")
 	-- FIXME: actually *require* absolute paths, then de-absolutize them
 	assert_no("^/", "absolute path")
-	assert_no("/../", "relative path")
-	assert_no("^../", "relative path")
-	assert_no("/..$", "relative path")
-	assert_no("^..$", "relative path")
-	assert_no("/./", "denormalized path")
-	assert_no("^./", "denormalized path")
-	assert_no("/.$", "denormalized path")
-	assert_no("^.$", "denormalized path")
+	assert_no("/%.%./", "relative path")
+	assert_no("^%.%./", "relative path")
+	assert_no("/%.%.$", "relative path")
+	assert_no("^%.%.$", "relative path")
+	assert_no("/%./", "denormalized path")
+	assert_no("^%./", "denormalized path")
+	assert_no("/%.$", "denormalized path")
+	assert_no("^%.$", "denormalized path")
 	assert_no("/$", "trailing slash")
 	assert_no("//", "duplicate slash")
 end
@@ -123,7 +127,12 @@ local function parse_args(arg)
 end
 
 local function write_file(relpath, contents, config)
-	-- TODO: mkdir -p $SHADOW/$(dirname relpath)
+	-- mkdir -p $SHADOW/$(dirname relpath)
+	local subdir = ""
+	for d in relpath:gmatch "([^/]+)/" do
+		subdir = subdir .. '/' .. d
+		nnn.osmkdir(nnn.ospath(config.shadow .. subdir))
+	end
 	-- TODO: support binary files
 	local fh = assert(io.open(nnn.ospath(config.shadow .. '/' .. relpath), 'w'))
 	assert(fh:write(contents))
