@@ -1,8 +1,9 @@
 local nnn = require 'nnn'
+-- TODO: nnn.handle('c', ...)
 nnn.handle(require 'nnn.winfs')
--- TODO: nnn.handle(require 'nnn.winpath') -- with refreshenv support copied from chocolatey
--- TODO: nnn.handle(require 'nnn.zeroinstall')
--- TODO: nnn.handle(require 'nnn.chocolatey')
+-- TODO: nnn.handle('path', require 'nnn.winpath') -- with refreshenv support copied from chocolatey
+-- TODO: nnn.handle('0install', require 'nnn.zeroinstall')
+-- TODO: nnn.handle('choco', require 'nnn.chocolatey')
 
 local oneliners = {
 	gd = "git diff";
