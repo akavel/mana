@@ -5,7 +5,7 @@ local nnn = {
 	-- below values should be filled by user
 
 	prereqs = {},
-	files = {},
+	wanted = {},
 	-- ospath should be function translating a git relative path to
 	-- absolute path in user's OS; currently, example handler for Windows
 	-- OS is provided
@@ -53,7 +53,7 @@ local oneliners = {
 -- Render oneliners to full files
 for name, text in pairs(oneliners) do
 	-- if os == "windows" then
-		nnn.files[bin .. "/" .. name .. ".bat"] = "@" .. text .. " %*"
+		nnn.wanted[bin .. "/" .. name .. ".bat"] = "@" .. text .. " %*"
 	-- end
 end
 
@@ -229,8 +229,6 @@ end
 -- main --
 ----------
 
--- TODO: refactor: s/nnn.files/nnn.wanted
-
 local function main(arg)
 	-- TODO: option `-f config.lua` (default)
 	-- TODO: if shadow directory does not exist, do `mkdir -p` and `git init` for it
@@ -280,12 +278,12 @@ local function main(arg)
 
 	-- Any files in git but not in wanted should be removed
 	for path in git_lines("ls-tree --name-only -r HEAD", config) do
-		if not nnn.files[path] then
-			nnn.files[path] = nnn.absent
+		if not nnn.wanted[path] then
+			nnn.wanted[path] = nnn.absent
 		end
 	end
 	-- Render wanted files
-	for k, v in pairs(nnn.files) do
+	for k, v in pairs(nnn.wanted) do
 		assert_gitpath(k)
 		if v == nnn.absent then
 			assert(os.remove(nnn.ospath(config.shadow .. '/' .. k)))
