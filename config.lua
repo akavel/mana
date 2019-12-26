@@ -160,7 +160,7 @@ local function git_lines(argline, config)
 	-- FIXME: verify no spaces in 'shadow' path, or otherwise handle it correctly in popen call
 	local cmd = "git -C " .. nnn.ospath(config.shadow) .. " " .. argline
 	local pipe = assert(io.popen(cmd))
-	local function iter(pipe)
+	return function()
 		local line, err = pipe:read '*l'
 		if err and not line then
 			error(err .. " when running: " .. cmd)
@@ -169,65 +169,57 @@ local function git_lines(argline, config)
 		end
 		return line
 	end
-	return iter, pipe
 end
 
--- git_status returns a list of files in the shadow repository that have
+-- git_status returns an iterator over files in the shadow repository that have
 -- differences between the working tree and the staging area ("index file"),
--- including untracked files. The function returns nil and error in case of
--- problems. Entries in the returned list are tables with the following fields:
+-- including untracked files. Entries in the returned list are tables with the
+-- following fields:
 --  - one-letter 'status': M[odified] / A[dded] / D[eleted] / ? [untracked]
 --  - relative 'path' (slash-separated)
 --
 -- TODO: support whitespace and other nonprintable characters without error
--- TODO: LATER make it return an iterator
 local function git_status(shadow)
 	-- FIXME: verify no spaces in 'shadow' path, or otherwise handle it correctly in popen call
-	local pipe, err = io.popen("git -C " .. nnn.ospath(shadow) .. " status --porcelain -uall --ignored --no-renames")
-	if not pipe then
-		return nil, err
-	end
-	local files = {}
-	while true do
-		local line, err = pipe:read '*l'
-		if not line then
-			pipe:close()
-			if err then
-				return nil, err
+	local nextline = git_lines("status --porcelain -uall --ignored --no-renames", {shadow = shadow})
+	return function()
+		while true do
+			local line = nextline()
+			if not line then
+				return nil  -- finish
+			elseif #line < 4 then
+				error(('line from git status too short: %q'):format(line))
+			elseif line:sub(4,4) == '"' then
+				-- TODO: support space & special chars: "If a filename contains
+				-- whitespace or other nonprintable characters, that field will
+				-- be quoted in the manner of a C string literal: surrounded by
+				-- ASCII double quote (34) characters, and with interior
+				-- special characters backslash-escaped."
+				error(('whitespace and special characters not yet supported in paths: %s'):format(line:sub(4)))
 			end
-			break
-		end
-		if #line < 4 then
-			pipe:close()
-			return nil, ('line from git status too short: %q'):format(line)
-		end
-		-- TODO: support space & special chars: "If a filename contains
-		-- whitespace or other nonprintable characters, that field will
-		-- be quoted in the manner of a C string literal: surrounded by
-		-- ASCII double quote (34) characters, and with interior
-		-- special characters backslash-escaped."
-		if line:sub(4,4) == '"' then
-			pipe:close()
-			return nil, ('whitespace and special characters not yet supported in paths: %s'):format(line:sub(4))
-		end
-		local f = {
-			status = line:sub(2,2),
-			path = line:sub(4),
-		}
-		if not (' MAD?'):find(f.status, 1, true) then
-			pipe:close()
-			return nil, ('unexpected status %q from git in line: %q'):format(f.status, line)
-		end
-		if f.status ~= ' ' then
-			files[#files+1] = f
+			local f = {
+				status = line:sub(2,2),
+				path = line:sub(4),
+			}
+			if not (' MAD?'):find(f.status, 1, true) then
+				error(('unexpected status %q from git in line: %q'):format(f.status, line))
+			end
+			if f.status ~= ' ' then
+				return f
+			end
 		end
 	end
-	return files
 end
 
 ----------
 -- main --
 ----------
+
+-- TODO: local nnn = require 'nnn'; nnn.exec_with(shadow_dir)
+-- TODO: nnn.handler(require 'nnn.winfs')
+-- TODO: nnn.handler(require 'nnn.winpath') -- with refreshenv support copied from chocolatey
+-- TODO: nnn.handler(require 'nnn.zeroinstall')
+-- TODO: nnn.handler(require 'nnn.chocolatey')
 
 local function main(arg)
 	-- TODO: option `-f config.lua` (default)
@@ -241,8 +233,8 @@ local function main(arg)
 	end
 
 	-- Verify shadow repo is clean
-	local files = or_die(git_status(config.shadow))
-	if #files > 0 then
+	local iterfiles = git_status(config.shadow)
+	if iterfiles() then
 		die(("shadow git repo not clean: %s"):format(config.shadow))
 	end
 
@@ -267,8 +259,8 @@ local function main(arg)
 		nnn.oscopy(nnn.ospath(path), nnn.ospath(config.shadow .. "/" .. path))
 	end
 	-- Verify that prerequisites match disk contents
-	local files = or_die(git_status(config.shadow))
-	if #files > 0 then
+	local iterfiles = git_status(config.shadow)
+	if iterfiles() then
 		die(("real disk contents differ from expected prerequisites; check git diff in shadow repo: %s"):format(config.shadow))
 	end
 
@@ -292,16 +284,14 @@ local function main(arg)
 		end
 	end
 	-- For new files, verify they are absent on disk
-	local files = or_die(git_status(config.shadow))
-	for _, f in ipairs(files) do
+	for f in git_status(config.shadow) do
 		if f.status == '?' and exists(nnn.ospath(f.path)) then
 			die("file expected absent, but found on disk: " .. f.path)
 		end
 	end
 
 	-- Render files to their places on disk!
-	local files = or_die(git_status(config.shadow))
-	for _, f in ipairs(files) do
+	for f in git_status(config.shadow) do
 		if f.status == '?' then
 			nnn.osmkdirp(nnn.ospath(f.path))
 		end
