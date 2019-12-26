@@ -3,7 +3,8 @@ nnn.handle(require 'nnn.winhome')
 
 -- Other .vimrc settings, not plugin-related
 -- Some of them scavenged or cargo-culted from various random places
-nnn.wanted['home/_vimrc'] = [[
+-- %localappdata%/nvim/init.vim, based on https://github.com/equalsraf/neovim-qt/issues/68#issuecomment-163556972
+nnn.wanted['home/AppData/Local/nvim/init.vim'] = [[
 " I don't want clicking the mouse to enter visual mode:
 set mouse-=a
 
@@ -58,14 +59,16 @@ set nofoldenable
 set foldlevel=10
 
 " some undo/backup settings
-set backup      " keep a backup file (restore to previous version)
-set undofile    " keep an undo file (undo changes after closing)
-" don't litter current dir with backups, but still try to put them
-" somewhere; double slash // at the end stores filenames with path
-set backupdir-=.
-set backupdir^=~/tmp//,/tmp//
-set undodir-=.
-set undodir^=~/tmp//,/tmp//
+if has('unix')
+  set backup      " keep a backup file (restore to previous version)
+  set undofile    " keep an undo file (undo changes after closing)
+  " don't litter current dir with backups, but still try to put them
+  " somewhere; double slash // at the end stores filenames with path
+  set backupdir-=.
+  set backupdir^=~/tmp//,/tmp//
+  set undodir-=.
+  set undodir^=~/tmp//,/tmp//
+endif
 
 " Don't use Ex mode, use Q for formatting
 map Q gq
@@ -154,7 +157,9 @@ endif
 "  :so $VIMRUNTIME/syntax/hitest.vim     " test currently chosen color scheme
 " TODO(akavel): find out what I'm using at work, and also do more research on
 " colorschemes; make sure that comments look readable
-colorscheme ron
+if has('unix')  " TODO: change to 'if not nvim-qt' somehow
+  colorscheme ron
+endif
 
 " This trigger takes advantage of the fact that the quickfix window can be
 " easily distinguished by its file-type, qf. The wincmd J command is
