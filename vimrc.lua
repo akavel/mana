@@ -5,6 +5,21 @@ nnn.handle(require 'nnn.winhome')
 -- Some of them scavenged or cargo-culted from various random places
 -- %localappdata%/nvim/init.vim, based on https://github.com/equalsraf/neovim-qt/issues/68#issuecomment-163556972
 nnn.wanted['home/AppData/Local/nvim/init.vim'] = [[
+
+" Load plugins from $VIMPATH, if available
+" (+ workaround for broken handling of packpath by vim8/neovim for ftplugins)
+" TODO: handle `helptags` somehow; consider
+let g:pathsep = ':'
+if has("win32")
+    let g:pathsep = ';'
+endif
+filetype off | syn off
+for p in split($VIMPATH,g:pathsep)
+    let &rtp = p . ',' . &rtp . ',' . p . '/after'
+endfor
+"echom &rtp
+filetype indent plugin on | syn on
+
 " I don't want clicking the mouse to enter visual mode:
 set mouse-=a
 
