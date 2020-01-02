@@ -28,6 +28,7 @@ for name, text in pairs(oneliners) do
 end
 
 nnn.wanted["path/user/c/bin"] = ""
+nnn.wanted["path/user/C/Users/Mateusz/.nimble/bin"] = ""
 
 -- Execute --
 local winfs = require 'nnn.winfs'
