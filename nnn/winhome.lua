@@ -14,11 +14,11 @@ end
 function winhome.exists(path)
 	return winfs.osexists(winhome.ospath(path))
 end
-function winhome.query(path, shadowf)
-	winfs.copy(winhome.ospath(path), shadowf(path))
+function winhome.query(path, shadowpath)
+	winfs.copy(winhome.ospath(path), shadowpath)
 end
-function winhome.apply(path, shadowf)
-	winfs.osapply(winhome.ospath(path), shadowf(path))
+function winhome.apply(path, shadowpath)
+	winfs.osapply(winhome.ospath(path), shadowpath)
 end
 
 function winhome.ospath(path)

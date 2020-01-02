@@ -8,14 +8,12 @@ function winfs.exists(path)
 	return winfs.osexists(winfs.ospath(path))
 end
 
--- winfs.query invokes copy command to copy file from filesystem into specified
--- path in the git repository controlled by shadowf
-function winfs.query(path, shadowf)
-	winfs.copy(winfs.ospath(path), shadowf(path))
+function winfs.query(path, shadowpath)
+	winfs.copy(winfs.ospath(path), shadowpath)
 end
 
-function winfs.apply(path, shadowf)
-	winfs.osapply(winfs.ospath(path), shadowf(path))
+function winfs.apply(path, shadowpath)
+	winfs.osapply(winfs.ospath(path), shadowpath)
 end
 
 -- winfs.ospath is a helper which translates a git relative path to absolute

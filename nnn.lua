@@ -169,7 +169,7 @@ function nnn.exec_with(shadowf)
 	for path in git_lines("ls-files --cached", shadowf) do
 		local h = handler(path)
 		if h.exists(path) then
-			h.query(path, shadowf)
+			h.query(path, shadowf(path))
 		else
 			os.remove(shadowf(path))  -- don't error if file doesn't exist in repo
 		end
@@ -209,10 +209,10 @@ function nnn.exec_with(shadowf)
 	-- Render files to their places on disk!
 	for f in git_status(shadowf) do
 		if f.status == '?' or f.status == 'M' then
-			handler(f.path).apply(f.path, shadowf) -- TODO: must `mkdir -p` if needed
+			handler(f.path).apply(f.path, shadowf(f.path)) -- TODO: must `mkdir -p` if needed
 			git("add -- " .. f.path, shadowf)
 		elseif f.status == 'D' then
-			handler(f.path).apply(f.path, shadowf) -- TODO: must `rm` if absent in git
+			handler(f.path).apply(f.path, shadowf(f.path)) -- TODO: must `rm` if absent in git
 			git("rm -- " .. f.path, shadowf)
 		else
 			errorf('unexpected status %q of file in shadow repo: %s', f.status, f.path)

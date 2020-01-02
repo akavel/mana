@@ -29,12 +29,12 @@ function winpath.exists(path)
 	return false
 end
 
-function winpath.query(path, shadowf)
-	winpath.touch(shadowf(path))
+function winpath.query(path, shadowpath)
+	winpath.touch(shadowpath)
 end
 
-function winpath.apply(path, shadowf)
-	local adding = winfs.osexists(shadowf(path))
+function winpath.apply(path, shadowpath)
+	local adding = winfs.osexists(shadowpath)
 	local ospath = winfs.ospath(trim_root(path))
 	local newpath = {}
 	local found = false
