@@ -1,12 +1,9 @@
 local nnn = require 'nnn'
--- TODO: nnn.handle('c', ...)
-nnn.handle(require 'nnn.winfs')
--- TODO: nnn.handle('path', require 'nnn.winpath') -- with refreshenv support copied from chocolatey
-nnn.handle(require 'nnn.winpath')
+nnn.handle('c', require'nnn.winfs'.fordisk'c')
+nnn.handle('path', require 'nnn.winpath') -- with refreshenv support copied from chocolatey
 -- TODO: nnn.handle('0install', require 'nnn.zeroinstall')
 -- TODO: nnn.handle('choco', require 'nnn.chocolatey')
--- TODO: nnn.handle('home', ...)
-nnn.handle(require 'nnn.winhome')
+nnn.handle('home', require 'nnn.winhome')
 
 require 'vimrc'
 
@@ -27,8 +24,8 @@ for name, text in pairs(oneliners) do
 	nnn.wanted["c/bin/" .. name .. ".bat"] = "@" .. text .. " %*"
 end
 
-nnn.wanted["path/user/c/bin"] = ""
-nnn.wanted["path/user/C/Users/Mateusz/.nimble/bin"] = ""
+nnn.wanted["path/c/bin"] = ""
+nnn.wanted["path/C/Users/Mateusz/.nimble/bin"] = ""
 
 -- Execute --
 local winfs = require 'nnn.winfs'

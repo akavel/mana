@@ -1,11 +1,10 @@
+-- Package winpath handles setting of User's PATH variable in registry.
+-- NOTE: Handling Machine-wide PATH is currently unsupported, as it
+-- requires elevated (i.e. Administrator) privileges.
 local winpath = {}
 
 local winfs = require 'nnn.winfs'
 
-local root = 'path/user/'
-local function trim_root(path)
-	return path:sub(#root+1)
-end
 -- simplify path for comparison purposes
 local function simplify(ospath)
 	local ospath = ospath:gsub('\\+$', '')  -- trim backslash
@@ -15,12 +14,8 @@ local function powershell(cmd)
 	return 'powershell -command " ' .. cmd .. ' "'
 end
 
-function winpath.owns(path)
-	return path:find('^' .. root)
-end
-
 function winpath.exists(path)
-	local ospath = simplify(winfs.ospath(trim_root(path)))
+	local ospath = simplify(winfs.ospath(path))
 	for p in winpath.iter() do
 		if simplify(p) == ospath then
 			return true
@@ -35,7 +30,7 @@ end
 
 function winpath.apply(path, shadowpath)
 	local adding = winfs.osexists(shadowpath)
-	local ospath = winfs.ospath(trim_root(path))
+	local ospath = winfs.ospath(path)
 	local newpath = {}
 	local found = false
 	for p in winpath.iter() do

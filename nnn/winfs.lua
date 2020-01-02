@@ -1,25 +1,26 @@
 local winfs = {}
 
-function winfs.owns(path)
-	return not not path:find "^[a-zA-Z]/"
-end
-
-function winfs.exists(path)
-	return winfs.osexists(winfs.ospath(path))
-end
-
-function winfs.query(path, shadowpath)
-	winfs.copy(winfs.ospath(path), shadowpath)
-end
-
-function winfs.apply(path, shadowpath)
-	winfs.osapply(winfs.ospath(path), shadowpath)
+function winfs.fordisk(letter)
+	if not string.match(letter, '^[a-zA-Z]$') then
+		error(('disk must be one-letter, got: %q'):format(letter))
+	end
+	return {
+		exists = function(path)
+			return winfs.osexists(winfs.ospath(letter..'/'..path))
+		end,
+		query = function(path, shadowpath)
+			winfs.copy(winfs.ospath(letter..'/'..path), shadowpath)
+		end,
+		apply = function(path, shadowpath)
+			winfs.osapply(winfs.ospath(letter..'/'..path), shadowpath)
+		end,
+	}
 end
 
 -- winfs.ospath is a helper which translates a git relative path to absolute
 -- path in Windows
 function winfs.ospath(path)
-	if not winfs.owns(path) then
+	if not path:find '^[a-zA-Z]/' then
 		error(('path not valid for Windows, must be "<DISK>/<RELPATH>", got: %q'):format(path))
 	end
 	return path:sub(1,1) .. ":\\" .. path:sub(3):gsub("/", "\\")

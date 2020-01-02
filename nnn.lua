@@ -1,6 +1,6 @@
 local nnn = {
 	absent = {},  -- special tag value for marking absent files
-	handlers = {},  -- will contain a list of handlers to use for processing paths
+	handlers = {},  -- will contain a map of handlers to use for processing paths
 
 	-- below values should be filled by user
 
@@ -117,12 +117,15 @@ local function git_status(shadowf)
 end
 
 local function handler(path)
-	for _, h in ipairs(nnn.handlers) do
-		if h.owns(path) then
-			return h
-		end
+	local prefix, subpath = path:match '^([^/]+)/(.*)$'
+	if not prefix then
+		errorf('invalid path (missing slash or empty prefix): %q', path)
 	end
-	errorf('no handler found for path: %q', path)
+	local h = nnn.handlers[prefix]
+	if not h then
+		errorf('no handler found for prefix: %q (path: %q)', prefix, path)
+	end
+	return h
 end
 
 
@@ -132,8 +135,11 @@ end
 -- TODO: nnn.handler(require 'nnn.zeroinstall')
 -- TODO: nnn.handler(require 'nnn.chocolatey')
 
-function nnn.handle(handler)
-	nnn.handlers[#nnn.handlers+1] = handler
+function nnn.handle(prefix, handler)
+	if prefix:find '/' then
+		errorf("prefix must be a single path segment, with no slash; got: %q", prefix)
+	end
+	nnn.handlers[prefix] = handler
 end
 
 -- NOTE: shadowf must be a function converting a slash-separated relative path
