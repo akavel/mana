@@ -116,7 +116,7 @@ local function git_status(shadowf)
 	end
 end
 
-local function handler(path)
+local function handler_of(path)
 	local prefix, subpath = path:match '^([^/]+)/(.*)$'
 	if not prefix then
 		errorf('invalid path (missing slash or empty prefix): %q', path)
@@ -125,19 +125,20 @@ local function handler(path)
 	if not h then
 		errorf('no handler found for prefix: %q (path: %q)', prefix, path)
 	end
-	return h
+	return {
+		exists = function() return h.exists(subpath) end,
+		apply = function(shadowpath) h.apply(subpath, shadowpath) end,
+		query = function(shadowpath) h.query(subpath, shadowpath) end,
+	}
 end
 
 
--- TODO: local nnn = require 'nnn'; nnn.exec_with(shadow_dir)
--- TODO: nnn.handler(require 'nnn.winfs')
--- TODO: nnn.handler(require 'nnn.winpath') -- with refreshenv support copied from chocolatey
--- TODO: nnn.handler(require 'nnn.zeroinstall')
--- TODO: nnn.handler(require 'nnn.chocolatey')
-
 function nnn.handle(prefix, handler)
-	if prefix:find '/' then
+	if string.match(prefix, '/') then
 		errorf("prefix must be a single path segment, with no slash; got: %q", prefix)
+	end
+	if nnn.handlers[prefix] then
+		errorf("prefix already has a handler: %q", prefix)
 	end
 	nnn.handlers[prefix] = handler
 end
@@ -173,9 +174,9 @@ function nnn.exec_with(shadowf)
 	-- 'absent' prereqs here, as we don't have enough info; those will be
 	-- checked later.
 	for path in git_lines("ls-files --cached", shadowf) do
-		local h = handler(path)
-		if h.exists(path) then
-			h.query(path, shadowf(path))
+		local p = handler_of(path)
+		if p.exists() then
+			p.query(shadowf(path))
 		else
 			os.remove(shadowf(path))  -- don't error if file doesn't exist in repo
 		end
@@ -207,7 +208,7 @@ function nnn.exec_with(shadowf)
 	end
 	-- For new files, verify they are absent on disk
 	for f in git_status(shadowf) do
-		if f.status == '?' and handler(f.path).exists(f.path) then
+		if f.status == '?' and handler_of(f.path).exists() then
 			errorf("file expected absent, but found on disk: %s", f.path)
 		end
 	end
@@ -215,10 +216,10 @@ function nnn.exec_with(shadowf)
 	-- Render files to their places on disk!
 	for f in git_status(shadowf) do
 		if f.status == '?' or f.status == 'M' then
-			handler(f.path).apply(f.path, shadowf(f.path)) -- TODO: must `mkdir -p` if needed
+			handler_of(f.path).apply(shadowf(f.path)) -- TODO: must `mkdir -p` if needed
 			git("add -- " .. f.path, shadowf)
 		elseif f.status == 'D' then
-			handler(f.path).apply(f.path, shadowf(f.path)) -- TODO: must `rm` if absent in git
+			handler_of(f.path).apply(shadowf(f.path)) -- TODO: must `rm` if absent in git
 			git("rm -- " .. f.path, shadowf)
 		else
 			errorf('unexpected status %q of file in shadow repo: %s', f.status, f.path)

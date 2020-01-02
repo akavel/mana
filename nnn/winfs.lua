@@ -20,7 +20,7 @@ end
 -- winfs.ospath is a helper which translates a git relative path to absolute
 -- path in Windows
 function winfs.ospath(path)
-	if not path:find '^[a-zA-Z]/' then
+	if not string.match(path, '^[a-zA-Z]/') then
 		error(('path not valid for Windows, must be "<DISK>/<RELPATH>", got: %q'):format(path))
 	end
 	return path:sub(1,1) .. ":\\" .. path:sub(3):gsub("/", "\\")

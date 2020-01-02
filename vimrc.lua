@@ -1,5 +1,4 @@
 local nnn = require 'nnn'
-nnn.handle(require 'nnn.winhome')
 
 -- Other .vimrc settings, not plugin-related
 -- Some of them scavenged or cargo-culted from various random places
