@@ -1,6 +1,10 @@
 local nnn = require 'nnn'
+-- TODO: make handlers pluggable external processes, with a configurable
+-- command to run each one (managed through popen and json, one line = one
+-- command)
 nnn.handle('c', require'nnn.winfs'.fordisk'c')
-nnn.handle('path', require 'nnn.winpath') -- with refreshenv support copied from chocolatey
+-- TODO: add refreshenv support copied from chocolatey
+nnn.handle('path', require 'nnn.winpath')
 -- TODO: nnn.handle('0install', require 'nnn.zeroinstall')
 -- TODO: nnn.handle('choco', require 'nnn.chocolatey')
 nnn.handle('home', require 'nnn.winhome')

@@ -71,9 +71,5 @@ function winpath.touch(ospath)
 	fh:close()
 end
 
--- for p in winpath.iter() do
--- 	io.stderr:write('['..p..']\n')
--- end
-
 return winpath
 

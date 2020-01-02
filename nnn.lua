@@ -8,7 +8,7 @@ local nnn = {
 	wanted = {},
 	-- osmkdirp should create all parent directories leading to the
 	-- specified OS path. This should be equivalent to Linux command:
-	-- 
+	--
 	--   $ mkdir -p "$(dirname "$ospath")"
 	osmkdirp = function(ospath) error("please provide nnn.osmkdirp") end,
 }

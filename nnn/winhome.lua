@@ -16,7 +16,5 @@ function winhome.ospath(path)
 	return os.getenv('userprofile') .. '\\' .. path:gsub('/', '\\')
 end
 
--- io.stderr:write('[' .. winhome.ospath("home/.vim/vimrc") .. ']')
-
 return winhome
 
