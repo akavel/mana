@@ -1,9 +1,9 @@
-local nnn = require 'nnn'
+local mana = require 'mana'
 
 -- Other .vimrc settings, not plugin-related
 -- Some of them scavenged or cargo-culted from various random places
 -- %localappdata%/nvim/init.vim, based on https://github.com/equalsraf/neovim-qt/issues/68#issuecomment-163556972
-nnn.wanted['home/AppData/Local/nvim/init.vim'] = [[
+mana.wanted['home/AppData/Local/nvim/init.vim'] = [[
 
 " Load plugins from $VIMPATH, if available
 " (+ workaround for broken handling of packpath by vim8/neovim for ftplugins)

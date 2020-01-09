@@ -1,4 +1,4 @@
-local nnn = {
+local mana = {
   absent = {},  -- special tag value for marking absent files
   handlers = {},  -- will contain a map of handlers to use for processing paths
 
@@ -10,7 +10,7 @@ local nnn = {
   -- specified OS path. This should be equivalent to Linux command:
   --
   --   $ mkdir -p "$(dirname "$ospath")"
-  osmkdirp = function(ospath) error("please provide nnn.osmkdirp") end,
+  osmkdirp = function(ospath) error("please provide mana.osmkdirp") end,
 }
 
 local function errorf(msg, ...)
@@ -19,7 +19,7 @@ end
 
 local function write_file(ospath, contents)
   -- TODO: remove dependency on osmkdirp
-  nnn.osmkdirp(ospath)
+  mana.osmkdirp(ospath)
   -- TODO: support binary files
   local fh = assert(io.open(ospath, 'w'))
   assert(fh:write(contents))
@@ -54,7 +54,7 @@ local function assert_gitpath(s)
   assert_no("//", "duplicate slash")
 end
 
--- TODO: to remove need for `git -C` (and simplify handling of spaces in there), require calling nnn from working dir inside shadow repo
+-- TODO: to remove need for `git -C` (and simplify handling of spaces in there), require calling mana from working dir inside shadow repo
 
 local function git(argline, shadowf)
   -- FIXME: hide output, etc.
@@ -121,7 +121,7 @@ local function handler_of(path)
   if not prefix then
     errorf('invalid path (missing slash or empty prefix): %q', path)
   end
-  local h = nnn.handlers[prefix]
+  local h = mana.handlers[prefix]
   if not h then
     errorf('no handler found for prefix: %q (path: %q)', prefix, path)
   end
@@ -133,20 +133,20 @@ local function handler_of(path)
 end
 
 
-function nnn.handle(prefix, handler)
+function mana.handle(prefix, handler)
   if string.match(prefix, '/') then
     errorf("prefix must be a single path segment, with no slash; got: %q", prefix)
   end
-  if nnn.handlers[prefix] then
+  if mana.handlers[prefix] then
     errorf("prefix already has a handler: %q", prefix)
   end
-  nnn.handlers[prefix] = handler
+  mana.handlers[prefix] = handler
 end
 
 -- NOTE: shadowf must be a function converting a slash-separated relative path
 -- to an absolute path in 'shadow' git repository; it must return path to git
 -- repository when passed empty or nil argument
-function nnn.exec_with(shadowf)
+function mana.exec_with(shadowf)
   -- TODO: if shadow directory does not exist, do `mkdir -p` and `git init` for it
   -- TODO: allow "dry run" - to verify what would be done/changed on disk (stop before rendering files to disk)
 
@@ -157,9 +157,9 @@ function nnn.exec_with(shadowf)
   end
 
   -- Stage the prerequisites in the git repo
-  for k, v in pairs(nnn.prereqs) do
+  for k, v in pairs(mana.prereqs) do
     assert_gitpath(k)
-    if v == nnn.absent then
+    if v == mana.absent then
       -- FIXME: don't error if file does not exist in shadow repo
       git("rm -- " .. k, shadowf)
     else
@@ -193,14 +193,14 @@ function nnn.exec_with(shadowf)
 
   -- Any files in git but not in wanted should be removed
   for path in git_lines("ls-tree --name-only -r HEAD", shadowf) do
-    if not nnn.wanted[path] then
-      nnn.wanted[path] = nnn.absent
+    if not mana.wanted[path] then
+      mana.wanted[path] = mana.absent
     end
   end
   -- Render wanted files
-  for k, v in pairs(nnn.wanted) do
+  for k, v in pairs(mana.wanted) do
     assert_gitpath(k)
-    if v == nnn.absent then
+    if v == mana.absent then
       assert(os.remove(shadowf(k)))
     else
       write_file(shadowf(k), v)
@@ -230,5 +230,5 @@ function nnn.exec_with(shadowf)
   git('commit -m "deployment" --allow-empty', shadowf)
 end
 
-return nnn
+return mana
 

@@ -3,7 +3,7 @@
 -- requires elevated (i.e. Administrator) privileges.
 local winpath = {}
 
-local winfs = require 'nnn.winfs'
+local winfs = require 'mana.winfs'
 
 -- simplify path for comparison purposes
 local function simplify(ospath)

@@ -1,6 +1,6 @@
 local winhome = {}
 
-local winfs = require 'nnn.winfs'
+local winfs = require 'mana.winfs'
 
 function winhome.exists(path)
   return winfs.osexists(winhome.ospath(path))
