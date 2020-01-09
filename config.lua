@@ -1,4 +1,18 @@
 local mana = require 'mana'
+-- mana.handle('c', 'lua53 mana/winfs.lua c')
+-- mana.handle('path', 'lua53 mana/winpath.lua')
+-- mana.handle('home', 'lua53 mana/winhome.lua')
+--
+-- Protocol:
+--  "com.akavel.mana.v1.rq" CR? LF
+--  "detect " URLENCODED_PATH CR? LF
+--  "gather " URLENCODED_PATH " " URLENCODED_SHADOW_PATH CR? LF
+--  "affect " URLENCODED_PATH " " URLENCODED_SHADOW_PATH CR? LF
+--  "com.akavel.mana.v1.rs" CR? LF
+--  "detected " URLENCODED_PATH " present"/" absent" CR? LF
+--  "gathered " ...
+--  "affected " ...
+
 -- TODO: make handlers pluggable external processes, with a configurable
 -- command to run each one (managed through popen and json, one line = one
 -- command)
