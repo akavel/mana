@@ -104,11 +104,11 @@ function v1.call(name, pipe, cmd, ...)
   end
 end
 
--- v1.popen starts a shell commandline and opens a pipe channel to it. The
+-- v1.cmd starts a shell commandline and opens a pipe channel to it. The
 -- function returns an object conforming to mana plugins interface, where
 -- each method call is serialized over pipe, then a response is read from
 -- the pipe and returned.
-function v1.popen(commandline)
+function v1.cmd(commandline)
   local pipe = assert(io.popen(commandline))
   pipe:write(v1.handshake.rq)
   local handshake = pipe:read '*l'
