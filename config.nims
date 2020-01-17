@@ -1,0 +1,2 @@
+--taintMode:on
+

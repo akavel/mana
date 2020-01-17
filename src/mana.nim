@@ -140,19 +140,19 @@ proc die(msg: varargs[string, `$`]) =
 
 type
   GitRepo = distinct string  # repo path
-  # TODO: GitFile = distinct string  # relative path of a file in a GitRepo
-  GitStatus = tuple[status: char, path: string]
+  GitFile = distinct string  # relative path of a file in a GitRepo
+  GitStatus = tuple[status: char, path: GitFile]
 
 # FIXME: add also a command gitZStrings for NULL-separated strings
 # TODO: [LATER]: write an iterator variant of this proc
-proc gitLines(repo: GitRepo, args: openarray[string]): seq[string] =
+proc rawGitLines(repo: GitRepo, args: openarray[string]): seq[TaintedString] =
   var p = startProcess("git", workingDir=repo.string, args=args, options={poUsePath})
   var outp = outputStream(p)
   close inputStream(p)
   # TODO: what about errorStream(p) ?
   while not outp.atEnd:
     # FIXME: implement better readLine
-    result.add outp.readLine().string
+    result.add outp.readLine()
   while p.peekExitCode() == -1:
     continue
   close(p)
@@ -162,7 +162,7 @@ proc gitLines(repo: GitRepo, args: openarray[string]): seq[string] =
 
 proc gitStatus(repo: GitRepo): seq[GitStatus] =
   # FIXME: don't use die in this func, raise exceptions instead
-  for line in repo.gitLines "status --porcelain -uall --ignored --no-renames":
+  for line in repo.rawGitLines "status --porcelain -uall --ignored --no-renames":
     if line.len < 4: die "line from git status too short: " & line
     elif: line[3] == '"': die "whitespace and special characters not yet supported in paths: " & line[3..^1]
     let info = (status: line[2], path: line[4..^1])
