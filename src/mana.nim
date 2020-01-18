@@ -73,6 +73,7 @@ proc main() =
     # TODO: use poDaemon option on Windows
     handlers[prefix] = startHandler(command, args)
   proc handler(path: GitFile): tuple[h: Handler, p: GitSubfile] =
+    # echo "-", path.string
     let sep = path.string.find '/'
     check(sep > 0, "invalid path (missing slash or empty prefix): $1", path)
     let subpath = path.string[sep+1..^1].GitSubfile
@@ -159,12 +160,14 @@ proc gitFiles(repo: GitRepo, args: varargs[string]): seq[GitFile] =
 # TODO: [LATER]: write an iterator variant of this proc
 proc rawGitLines(repo: GitRepo, args: varargs[string]): seq[TaintedString] =
   var p = startProcess("git", workingDir=repo.string, args=args, options={poUsePath})
+  # echo repo.string, " git ", args
   var outp = outputStream(p)
   close inputStream(p)
   # TODO: what about errorStream(p) ?
   while not outp.atEnd:
     # FIXME: implement better readLine
     if (let l = outp.readLine(); l.len > 0):
+      # echo " ", l.string
       result.add l
   while p.peekExitCode() == -1:
     continue
