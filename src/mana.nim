@@ -82,7 +82,7 @@ proc main() =
   # file from disk into shadow repo, so that we can later easily compare them
   # for differences. NOTE: we can't account for 'absent' prereqs here, as we
   # don't have enough info; those will be checked later.
-  for path in shadow.gitFiles "ls-files --cached":
+  for path in shadow.gitFiles("ls-files", "--cached"):
     var ph = path.handler
     var shadowpath = shadow.ospath path
     if ph.detect:
@@ -94,7 +94,7 @@ proc main() =
 
   # List all files present in shadow repo
   # FIXME: [LATER]: how to make inshadow work as Set[GitFile]?
-  var inshadow = (shadow.gitFiles "ls-tree --name-only -r HEAD").mapIt(it.string).toHashSet
+  var inshadow = shadow.gitFiles("ls-tree", "--name-only", "-r", "HEAD").mapIt(it.string).toHashSet
 
   # Read wanted files, and write them to git repo
   while true:
@@ -142,8 +142,9 @@ proc main() =
   shadow.git "commit", "-m", "deployment", "--allow-empty"
 
 proc die(msg: varargs[string, `$`]) =
-  stderr.writeLine "error: " & msg.join ""
-  quit 1
+  raise newException(CatchableError, msg.join "")
+  # stderr.writeLine "error: " & msg.join ""
+  # quit 1
 
 type
   GitRepo = distinct string  # repo path
@@ -163,13 +164,13 @@ proc rawGitLines(repo: GitRepo, args: varargs[string]): seq[TaintedString] =
   # TODO: what about errorStream(p) ?
   while not outp.atEnd:
     # FIXME: implement better readLine
-    result.add outp.readLine()
+    if (let l = outp.readLine(); l.len > 0):
+      result.add l
   while p.peekExitCode() == -1:
     continue
   close(p)
-  if p.peekExitCode() != 0:
-    # TODO: [LATER]: better exception type
-    raise newException(ValueError, "command 'git " & args.join " " & "' returned non-zero exit code: " & $p.peekExitCode())
+  # TODO: [LATER]: throw exception instead of dying
+  check(p.peekExitCode() == 0, "command 'git $1' returned non-zero exit code: $2\n$3", args.join " ", $p.peekExitCode())
 
 proc git(repo: GitRepo, args: varargs[string]) =
   discard repo.rawGitLines(args)
@@ -179,7 +180,9 @@ proc `[]`[T, U](s: TaintedString, x: HSlice[T, U]): TaintedString =
 
 proc gitStatus(repo: GitRepo): seq[GitStatus] =
   # FIXME: don't use die in this func, raise exceptions instead
+  # FIXME: read all stdout & stderr, split into lines later -- so that we can print error message when needed
   for line in repo.rawGitLines("status", "--porcelain", "-uall", "--ignored", "--no-renames"):
+    if line == "": continue
     check(line.len >= 4, "line from git status too short: " & line.string)
     check(line.string[3] != '"', "whitespace and special characters not yet supported in paths: " & line.string[3..^1])
     let info = (status: line.string[2], path: line[3..^1].checkGitFile)
@@ -205,6 +208,7 @@ proc checkGitFile(s: TaintedString): GitFile =
   check_no("//", "duplicate slash, or leading/trailing slash")
   check_no("/../", "relative path")
   check_no("/./", "denormalized path")
+  return s.GitFile
 
 proc startHandler(command: string, args: openArray[string]): Handler =
   let p = startProcess(command=command, args=args, options={poUsePath})
