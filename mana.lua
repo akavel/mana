@@ -13,6 +13,9 @@ local mana = {
   osmkdirp = function(ospath) error("please provide mana.osmkdirp") end,
 }
 
+local arg = arg
+_G.arg = nil
+
 local function errorf(msg, ...)
   error(msg:format(...))
 end

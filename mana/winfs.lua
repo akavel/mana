@@ -49,8 +49,8 @@ end
 -- winfs.copy is a helper copying a file on disk from p1 to p2
 function winfs.copy(p1, p2)
   -- TODO: use rsync if possible
-  local cmd = "copy /b /y " .. p1 .. " " .. p2
-  io.stdout:write('# ' .. cmd .. '\n')
+  local cmd = "copy /b /y " .. p1 .. " " .. p2 .. " >nul"
+  io.stderr:write('# ' .. cmd .. '\n')
   assert(os.execute(cmd))
 end
 
@@ -67,6 +67,10 @@ function winfs.mkdirp(ospath)
     -- TODO: make it silent when directory already exists
     os.execute("mkdir " .. parent)
   end
+end
+
+if arg then
+    require 'manaprotocol'.handle(winfs.fordisk(arg[1]))
 end
 
 return winfs
