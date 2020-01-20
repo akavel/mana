@@ -31,16 +31,17 @@ function v1.read()
   if not l then
     return nil
   elseif l == v1.handshake.rq then
+    io.write(v1.handshake.rs .. '\n')
     return v1.read()
   elseif hasprefix(l, 'detect ') then
     local cmd, path, extra = l:match('^'..word..' '..word..'(.*)$')
-    if extra or not cmd then
+    if extra ~= "" or not cmd then
       panick(l)
     end
     return {cmd=cmd, path=v1._urldecode(path)}
   elseif hasprefix(l, 'gather ') or hasprefix(l, 'affect ') then
     local cmd, path, shadowpath, extra = l:match('^'..word..' '..word..' '..word..'(.*)$')
-    if extra or not cmd then
+    if extra ~= "" or not cmd then
       panick(l)
     end
     return {cmd=cmd, path=v1._urldecode(path), shadowpath=v1._urldecode(shadowpath)}
@@ -50,7 +51,6 @@ function v1.read()
 end
 
 function v1.write(resp)
-  io.write(v1.handshake.rs .. '\n')
   if resp.cmd == 'detected' then
     if resp.result ~= 'present' and resp.result ~= 'absent' then
       error(('expected .result "present" or "absent", got: %q'):format(resp.result))
@@ -71,13 +71,24 @@ end
 -- v1.handle calls v1.read in a loop and dispatches commands from
 -- handler based on the input, then writes response to the output.
 function v1.handle(handler)
+  local oldfuncs = {
+    detect = "exists",
+    gather = "query",
+    affect = "apply",
+  }
   while true do
     local cmd = v1.read()
     if not cmd then
       return
     end
-    local resp = handler[cmd.cmd](cmd.path, cmd.shadowpath)
-    v1.write(resp)
+    local h = handler[cmd.cmd] or handler[oldfuncs[cmd.cmd]]
+    local resp = h(cmd.path, cmd.shadowpath)
+    v1.write{
+      cmd = cmd.cmd .. 'ed',
+      result = resp and 'present' or 'absent',
+      path = cmd.path,
+      shadowpath = cmd.shadowpath,
+    }
   end
 end
 
@@ -88,7 +99,7 @@ function v1.call(name, pipe, cmd, ...)
   end
   pipe:write(cmd..' '..table.concat(args, ' ')..'\n')
   local resp = pipe:read '*l'
-  local want = cmd..'ed '..table.concat(args, ' '))
+  local want = cmd..'ed '..table.concat(args, ' ')
   if not hasprefix(resp, want) then
     error(('expected response %q but got %q from program %q'):format(
       want, resp, name))
@@ -135,3 +146,5 @@ function v1.cmd(commandline)
     end,
   }
 end
+
+return v1
