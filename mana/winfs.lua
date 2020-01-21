@@ -1,5 +1,8 @@
 local winfs = {}
 
+local arg = arg
+_G.arg = nil
+
 function winfs.fordisk(letter)
   if not string.match(letter, '^[a-zA-Z]$') then
     error(('disk must be one-letter, got: %q'):format(letter))
@@ -70,7 +73,7 @@ function winfs.mkdirp(ospath)
 end
 
 if arg then
-    require 'manaprotocol'.handle(winfs.fordisk(arg[1]))
+  require 'manaprotocol'.handle(winfs.fordisk(arg[1]))
 end
 
 return winfs

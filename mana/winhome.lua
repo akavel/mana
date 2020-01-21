@@ -1,5 +1,8 @@
 local winhome = {}
 
+local arg = arg
+_G.arg = nil
+
 local winfs = require 'mana.winfs'
 
 function winhome.exists(path)
@@ -14,6 +17,10 @@ end
 
 function winhome.ospath(path)
   return os.getenv('userprofile') .. '\\' .. path:gsub('/', '\\')
+end
+
+if arg then
+  require 'manaprotocol'.handle(winhome)
 end
 
 return winhome

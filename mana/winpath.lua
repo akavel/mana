@@ -3,6 +3,9 @@
 -- requires elevated (i.e. Administrator) privileges.
 local winpath = {}
 
+local arg = arg
+_G.arg = nil
+
 local winfs = require 'mana.winfs'
 
 -- simplify path for comparison purposes
@@ -69,6 +72,10 @@ end
 function winpath.touch(ospath)
   local fh = assert(io.open(ospath, 'a'))
   fh:close()
+end
+
+if arg then
+  require 'manaprotocol'.handle(winpath)
 end
 
 return winpath

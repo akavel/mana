@@ -32,6 +32,7 @@ function v1.read()
     return nil
   elseif l == v1.handshake.rq then
     io.write(v1.handshake.rs .. '\n')
+    io.flush()
     return v1.read()
   elseif hasprefix(l, 'detect ') then
     local cmd, path, extra = l:match('^'..word..' '..word..'(.*)$')
@@ -58,11 +59,13 @@ function v1.write(resp)
       error('missing .path')
     end
     io.write(('%s %s %s\n'):format(resp.cmd, v1._urlencode(resp.path), v1._urlencode(resp.result)))
+    io.flush()
   elseif resp.cmd == 'gathered' or resp.cmd == 'affected' then
     if not resp.path or not resp.shadowpath then
       error('missing .path or .shadowpath')
     end
     io.write(('%s %s %s\n'):format(resp.cmd, v1._urlencode(resp.path), v1._urlencode(resp.shadowpath)))
+    io.flush()
   else
     error(('unexpected .cmd: %q'):format(resp.cmd))
   end

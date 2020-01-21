@@ -103,7 +103,7 @@ proc main() =
     check(line.len > 0, "expected 'want' line or 'exec' line, got empty line")
     case line[0].string
     of "want":
-      check(line.len == 3, "expected urlencoded path and 'with'/'absent' after 'want' in: '$1'", line.join " ")
+      check(line.len == 2, "expected urlencoded path after 'want' in: '$1'", line.join " ")
       let path = line[1].urldecode.checkGitFile
       # FIXME: [LATER] allow emitting CR-terminated lines (by allowing binary files somehow)
       var fh = open(shadow.ospath path, mode = fmWrite)
@@ -116,6 +116,9 @@ proc main() =
         fh.writeLine rawline[1..^1].string
       fh.close()
       inshadow.excl path.string
+    of "affect":
+      unread = line.join " "
+      break
   # Remove from shadow repo any files that are not wanted
   for path in inshadow:
     removeFile shadow.ospath path.GitFile
@@ -188,7 +191,7 @@ proc gitStatus(repo: GitRepo): seq[GitStatus] =
     if line == "": continue
     check(line.len >= 4, "line from git status too short: " & line.string)
     check(line.string[3] != '"', "whitespace and special characters not yet supported in paths: " & line.string[3..^1])
-    let info = (status: line.string[2], path: line[3..^1].checkGitFile)
+    let info = (status: line.string[1], path: line[3..^1].checkGitFile)
     check(info.status in " MAD?", "unexpected status from git in line: " & line.string)
     # if info.status notin " MAD?": die "unexpected status from git in line: " & line.string  # {' ', 'M', 'A', 'D', '?'}
     if info.status != ' ':
@@ -231,7 +234,7 @@ type
 
 proc `<<`(ph: PathHandler, rawQuery: string): seq[TaintedString] =
   let h = ph.h.Process
-  h.inputStream.writeLine("detect " & ph.p.urlencode)
+  h.inputStream.writeLine rawQuery
   return h.outputStream.readLine.split " "
 
 proc detect(ph: PathHandler): bool =
