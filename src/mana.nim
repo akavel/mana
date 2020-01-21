@@ -70,7 +70,8 @@ proc main() =
       args: seq[string]
     for i in 3 ..< len(line):
       args.add line[i].urldecode.string
-    # TODO: use poDaemon option on Windows
+    # TODO: use poDaemon option on Windows?
+    stderr.writeLine "handler " & prefix & " " & command & " " & (args.join " ")
     handlers[prefix] = startHandler(command, args)
   proc handler(path: GitFile): tuple[h: Handler, p: GitSubfile] =
     # echo "-", path.string
@@ -162,6 +163,7 @@ proc gitFiles(repo: GitRepo, args: varargs[string]): seq[GitFile] =
 # FIXME: add also a command gitZStrings for NULL-separated strings
 # TODO: [LATER]: write an iterator variant of this proc
 proc rawGitLines(repo: GitRepo, args: varargs[string]): seq[TaintedString] =
+  stderr.writeLine "# cd " & repo.string & "; git " & args.join " "
   var p = startProcess("git", workingDir=repo.string, args=args, options={poUsePath})
   # echo repo.string, " git ", args
   var outp = outputStream(p)
@@ -233,6 +235,7 @@ type
   PathHandler = tuple[h: Handler, p: GitSubfile]
 
 proc `<<`(ph: PathHandler, rawQuery: string): seq[TaintedString] =
+  stderr.writeLine rawQuery
   let h = ph.h.Process
   h.inputStream.writeLine rawQuery
   return h.outputStream.readLine.split " "
