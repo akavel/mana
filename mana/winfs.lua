@@ -68,7 +68,7 @@ function winfs.mkdirp(ospath)
   for d in iter do
     parent = parent .. '\\' .. d
     -- TODO: make it silent when directory already exists
-    os.execute("mkdir " .. parent)
+    os.execute("mkdir " .. parent .. " 2>nul >nul")
   end
 end
 
