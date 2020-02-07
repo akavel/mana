@@ -7,6 +7,7 @@ import streams
 import strutils
 import tables
 import terminal
+import unicode
 import uri
 
 when isMainModule:
@@ -100,7 +101,7 @@ proc main() =
 
   # List all files present in shadow repo
   # FIXME: [LATER]: how to make inshadow work as Set[GitFile]?
-  var inshadow = shadow.gitFiles("ls-tree", "--name-only", "-r", "HEAD").mapIt(it.string).toHashSet
+  var inshadow = shadow.gitFiles("ls-tree", "--name-only", "-r", "HEAD").mapIt((it.string.toLower, it.string)).toTable
 
   # Read wanted files, and write them to git repo
   while true:
@@ -122,14 +123,14 @@ proc main() =
           break
         fh.writeLine rawline[1..^1].string
       fh.close()
-      inshadow.excl path.string
+      inshadow.del path.string.toLower
     of "affect":
       unread = line.join " "
       break
     else:
       die "expected 'want' or 'affect' line, got: " & string(line.join " ")
   # Remove from shadow repo any files that are not wanted
-  for path in inshadow:
+  for _, path in inshadow:
     removeFile shadow.ospath path.GitFile
   # For new files, verify they are absent on disk
   for f in shadow.gitStatus:
