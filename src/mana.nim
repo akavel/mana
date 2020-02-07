@@ -232,6 +232,7 @@ proc startHandler(command: string, args: openArray[string]): Handler =
   # TODO: use poDaemon option on Windows?
   let p = startProcess(command=command, args=args, options={poUsePath, poStdErrToStdOut})
   p.inputStream.writeLine "com.akavel.mana.v1.rq"
+  p.inputStream.flush
   let rs = p.outputStream.readLine
   if rs != "com.akavel.mana.v1.rs":
     stderr.setForegroundColor(fgRed)
