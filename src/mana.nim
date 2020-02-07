@@ -100,7 +100,7 @@ proc main() =
   CHECK(shadow.gitStatus.len == 0, "real disk contents differ from expected prerequisites; check git diff in shadow repo: " & shadow.string)
 
   # List all files present in shadow repo
-  # FIXME: [LATER]: how to make inshadow work as Set[GitFile]?
+  # FIXME: [LATER]: how to make inshadow work as Table[GitFile]?
   var inshadow = shadow.gitFiles("ls-tree", "--name-only", "-r", "HEAD").mapIt((it.string.toLower, it.string)).toTable
 
   # Read wanted files, and write them to git repo
@@ -130,6 +130,7 @@ proc main() =
     else:
       die "expected 'want' or 'affect' line, got: " & string(line.join " ")
   # Remove from shadow repo any files that are not wanted
+  # TODO: remove them in reverse-alphabetical order!
   for _, path in inshadow:
     removeFile shadow.ospath path.GitFile
   # For new files, verify they are absent on disk
@@ -197,11 +198,23 @@ proc `[]`[T, U](s: TaintedString, x: HSlice[T, U]): TaintedString =
   s.string[x].TaintedString
 
 proc gitStatus(repo: GitRepo): seq[GitStatus] =
+  ## gitStatus returns an an array of files in the shadow repository that have
+  ## differences between the working tree and the staging area ("index file"),
+  ## including untracked files. Entries in the returned list have the following
+  ## fields:
+  ##  - one-letter 'status': M[odified] / A[dded] / D[eleted] / ? [untracked]
+  ##  - relative 'path' (slash-separated)
+  ##
+  ## TODO: support whitespace and other nonprintable characters without error
   # FIXME: don't use die in this func, raise exceptions instead
   # FIXME: read all stdout & stderr, split into lines later -- so that we can print error message when needed
   for line in repo.rawGitLines("status", "--porcelain", "-uall", "--ignored", "--no-renames"):
     if line == "": continue
     CHECK(line.len >= 4, "line from git status too short: " & line.string)
+    # TODO: support space & special chars: "If a filename contains whitespace
+    # or other nonprintable characters, that field will be quoted in the manner
+    # of a C string literal: surrounded by ASCII double quote (34) characters,
+    # and with interior special characters backslash-escaped."
     CHECK(line.string[3] != '"', "whitespace and special characters not yet supported in paths: " & line.string[3..^1])
     let info = (status: line.string[1], path: line[3..^1].checkGitFile)
     CHECK(info.status in " MAD?", "unexpected status from git in line: " & line.string)
