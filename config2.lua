@@ -1,7 +1,16 @@
 
+-- local proc = assert(popen('mana', 'w'))
+local proc = assert(io.open('mana.log', 'w'))
+proc:write [[
+com.akavel.mana.v1
+shadow c:\prog\shadow
+handle c lua53 mana/winfs.lua c
+handle path lua53 mana/winpath.lua
+handle home lua53 mana/winhome.lua
+]]
+-- TODO: `handle 0install lua53 mana/zeroinstall.lua`
+-- TODO: `handle choco lua53 mana/chocolatey.lua`
 -- TODO: add refreshenv support copied from chocolatey
--- TODO: mana.handle('0install', require 'mana.zeroinstall')
--- TODO: mana.handle('choco', require 'mana.chocolatey')
 
 mana = { wanted = {} }
 package.loaded.mana = mana
@@ -28,15 +37,6 @@ mana.wanted["path/c/bin"] = ""
 mana.wanted["path/C/Users/Mateusz/.nimble/bin"] = ""
 
 -- Execute --
--- local proc = assert(popen('mana', 'w'))
-local proc = assert(io.open('mana.log', 'w'))
-proc:write [[
-com.akavel.mana.v1
-shadow c:\prog\shadow
-handle c lua53 mana/winfs.lua c
-handle path lua53 mana/winpath.lua
-handle home lua53 mana/winhome.lua
-]]
 for n, v in pairs(mana.wanted) do
   proc:write("want " .. n .. "\n")
   for l in v:gmatch "[^\n]*" do
