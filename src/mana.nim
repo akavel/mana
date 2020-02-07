@@ -241,6 +241,10 @@ proc `<<`(ph: PathHandler, rawQuery: string): seq[TaintedString] =
   stderr.writeLine rawQuery
   let h = ph.h.Process
   h.inputStream.writeLine rawQuery
+  if h.outputStream.atEnd:
+    while not h.errorStream.atEnd:
+      stderr.writeLine h.errorStream.readLine.string
+    die "error from handler"
   return h.outputStream.readLine.split " "
 
 proc detect(ph: PathHandler): bool =
