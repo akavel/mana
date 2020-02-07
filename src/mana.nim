@@ -250,6 +250,7 @@ proc `<<`(ph: PathHandler, args: openArray[string]): seq[TaintedString] =
   stderr.writeLine query
   let h = ph.h.Process
   h.inputStream.writeLine query
+  h.inputStream.flush
   let rs = h.outputStream.readLine.split " "
   var ok = rs.len >= args.len and rs[0] == args[0] & "ed"
   var i = 1
