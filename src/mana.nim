@@ -262,6 +262,7 @@ proc `<<`(ph: PathHandler, args: openArray[string]): seq[TaintedString] =
   while ok and i < args.len:
     if rs[i].urldecode.string != args[i]:
       ok = false
+    inc(i)
   if not ok:
     stderr.setForegroundColor(fgRed)
     stderr.writeLine "ERROR: expected response to '$1' from handler, got:\n$2" % [query, string(rs.join " ")]
