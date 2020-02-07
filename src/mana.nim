@@ -101,7 +101,7 @@ proc main() =
   # Read wanted files, and write them to git repo
   while true:
     line = readLine().split ' '
-    check(line.len > 0, "expected 'want' line or 'exec' line, got empty line")
+    check(line.len > 0, "expected 'want' line or 'affect' line, got empty line")
     case line[0].string
     of "want":
       check(line.len == 2, "expected urlencoded path after 'want' in: '$1'", line.join " ")
