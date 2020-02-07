@@ -73,7 +73,7 @@ proc main() =
     # TODO: use poDaemon option on Windows?
     stderr.writeLine "handler " & prefix & " " & command & " " & (args.join " ")
     handlers[prefix] = startHandler(command, args)
-  proc handler(path: GitFile): tuple[h: Handler, p: GitSubfile] =
+  proc toHandler(path: GitFile): tuple[h: Handler, p: GitSubfile] =
     # echo "-", path.string
     let sep = path.string.find '/'
     check(sep > 0, "invalid path (missing slash or empty prefix): $1", path)
@@ -85,7 +85,7 @@ proc main() =
   # for differences. NOTE: we can't account for 'absent' prereqs here, as we
   # don't have enough info; those will be checked later.
   for path in shadow.gitFiles("ls-files", "--cached"):
-    var ph = path.handler
+    var ph = path.toHandler
     var shadowpath = shadow.ospath path
     if ph.detect:
       ph.gather_to shadowpath
@@ -127,7 +127,7 @@ proc main() =
     removeFile shadow.ospath path.GitFile
   # For new files, verify they are absent on disk
   for f in shadow.gitStatus:
-    check(f.status != '?' or not f.path.handler.detect, "file expected absent, but found on disk: $1", f.path)
+    check(f.status != '?' or not f.path.toHandler.detect, "file expected absent, but found on disk: $1", f.path)
 
   # Read final 'affect' line
   rawline = readLine()
@@ -137,10 +137,10 @@ proc main() =
   for f in shadow.gitStatus:
     case f.status
     of 'M', '?':
-      f.path.handler.affect shadow.ospath(f.path)
+      f.path.toHandler.affect shadow.ospath(f.path)
       shadow.git "add", "--", f.path.string
     of 'D':
-      f.path.handler.affect shadow.ospath(f.path)
+      f.path.toHandler.affect shadow.ospath(f.path)
       shadow.git "rm", "--", f.path.string
     else:
       die "unexpected status $1 of file in shadow repo: $2" % [$f.status, f.path.string]
