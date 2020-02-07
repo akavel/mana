@@ -172,6 +172,7 @@ proc rawGitLines(repo: GitRepo, args: varargs[string]): seq[TaintedString] =
   while not outp.atEnd:
     # FIXME: implement better readLine
     if (let l = outp.readLine(); l.len > 0):
+      stderr.writeLine "##" & l.string
       # echo " ", l.string
       result.add l
   while p.peekExitCode() == -1:
