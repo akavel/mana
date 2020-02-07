@@ -111,8 +111,10 @@ proc main() =
     of "want":
       check(line.len == 2, "expected urlencoded path after 'want' in: '$1'", line.join " ")
       let path = line[1].urldecode.checkGitFile
+      let ospath = shadow.ospath path
+      createDir(ospath.parentDir)
       # FIXME: [LATER] allow emitting CR-terminated lines (by allowing binary files somehow)
-      var fh = open(shadow.ospath path, mode = fmWrite)
+      var fh = open(ospath, mode = fmWrite)
       while true:
         let rawline = readLine()
         check(rawline.len > 0, "unexpected empty line in input")
