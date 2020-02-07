@@ -11,6 +11,9 @@ import uri
 when isMainModule:
   main()
 
+# TODO: s/check/CHECK
+# TODO: s/stderr.writeLine/LOG
+
 # Input protocol: (eggex specification - see: https://www.oilshell.org/release/0.7.pre5/doc/eggex.html)
 #
 #  HANDSHAKE = / 'com.akavel.mana.v1' CR? LF /
@@ -70,7 +73,6 @@ proc main() =
       args: seq[string]
     for i in 3 ..< len(line):
       args.add line[i].urldecode.string
-    # TODO: use poDaemon option on Windows?
     stderr.writeLine "handler " & prefix & " " & command & " " & (args.join " ")
     handlers[prefix] = startHandler(command, args)
   proc toHandler(path: GitFile): tuple[h: Handler, p: GitSubfile] =
@@ -222,10 +224,16 @@ proc checkGitFile(s: TaintedString): GitFile =
   return s.GitFile
 
 proc startHandler(command: string, args: openArray[string]): Handler =
-  let p = startProcess(command=command, args=args, options={poUsePath})
+  # TODO: use poDaemon option on Windows?
+  let p = startProcess(command=command, args=args, options={poUsePath, poStdErrToStdOut})
   p.inputStream.writeLine "com.akavel.mana.v1.rq"
   let rs = p.outputStream.readLine
-  check(rs == "com.akavel.mana.v1.rs", "expected handshake 'com.akavel.mana.v1.rs' from handler '$1', got '$2'", command, rs)
+  if rs != "com.akavel.mana.v1.rs":
+    stderr.writeLine "ERROR: expected handshake 'com.akavel.mana.v1.rs' from handler '$1', got:\n$2" % [command, rs.string]
+    p.inputStream.close
+    while not p.outputStream.atEnd:
+      stderr.writeLine p.outputStream.readLine.string
+    quit(1)
   return p.Handler
 
 proc urldecode(s: TaintedString): TaintedString =
@@ -237,34 +245,36 @@ type
   Handler = distinct Process
   PathHandler = tuple[h: Handler, p: GitSubfile]
 
-proc `<<`(ph: PathHandler, rawQuery: string): seq[TaintedString] =
-  stderr.writeLine rawQuery
+proc `<<`(ph: PathHandler, args: openArray[string]): seq[TaintedString] =
+  let query = args.map(urlencode).join(" ")
+  stderr.writeLine query
   let h = ph.h.Process
-  h.inputStream.writeLine rawQuery
-  if h.outputStream.atEnd:
-    while not h.errorStream.atEnd:
-      stderr.writeLine h.errorStream.readLine.string
-    die "error from handler"
-  return h.outputStream.readLine.split " "
+  h.inputStream.writeLine query
+  let rs = h.outputStream.readLine.split " "
+  var ok = rs.len >= args.len and rs[0] == args[0] & "ed"
+  var i = 1
+  while ok and i < args.len:
+    if rs[i].urldecode.string != args[i]:
+      ok = false
+  if not ok:
+    stderr.writeLine "ERROR: expected response to '$1' from handler, got:\n$2" % [query, string(rs.join " ")]
+    h.inputStream.close
+    while not h.outputStream.atEnd:
+      stderr.writeLine h.outputStream.readLine.string
+    quit(1)
+  return rs
 
 proc detect(ph: PathHandler): bool =
-  let rs = ph << "detect " & ph.p.urlencode
-  check(rs[0] == "detected", "in response to 'detect $1' expected 'detected ' prefix, got: $2", ph.p, rs.join " ")
-  check(rs[1].urldecode == ph.p.string, "bad path in response to 'detect $1': $2", ph.p, rs.join " ")
+  let rs = ph << ["detect", ph.p.string]
+  check(rs.len == 3, "bad result in response to 'detect $1': $2", ph.p, rs.join " ")
   case rs[2].string
   of "present": return true
   of "absent": return false
   else: die "bad result in response to 'detect $1': $2" % [ph.p.string, string(rs.join " ")]
 
 proc gather_to(ph: PathHandler, ospath: string) =
-  let rs = ph << "gather " & ph.p.urlencode & " " & ospath.urlencode
-  check(rs[0] == "gathered", "in response to 'gather $1' expected 'gathered ' prefix, got: $2", ph.p, rs.join " ")
-  check(rs[1].urldecode == ph.p.string, "bad 1st path in response to 'gather $1': $2", ph.p, rs.join " ")
-  check(rs[2].urldecode == ospath, "bad 2nd path in response to 'gather $1': $2", ph.p, rs.join " ")
+  discard ph << ["gather", ph.p.string, ospath]
 
 proc affect(ph: PathHandler, ospath: string) =
-  let rs = ph << "affect " & ph.p.urlencode & " " & ospath.urlencode
-  check(rs[0] == "affected", "in response to 'affect $1' expected 'affected ' prefix, got: $2", ph.p, rs.join " ")
-  check(rs[1].urldecode == ph.p.string, "bad 1st path in response to 'affect $1': $2", ph.p, rs.join " ")
-  check(rs[2].urldecode == ospath, "bad 2nd path in response to 'affect $1': $2", ph.p, rs.join " ")
+  discard ph << ["affect", ph.p.string, ospath]
 
