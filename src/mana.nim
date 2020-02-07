@@ -12,7 +12,6 @@ import uri
 when isMainModule:
   main()
 
-# TODO: s/check/CHECK
 # TODO: s/stderr.writeLine/LOG
 
 # Input protocol: (eggex specification - see: https://www.oilshell.org/release/0.7.pre5/doc/eggex.html)
@@ -50,26 +49,26 @@ proc main() =
 
   # Read handshake
   var rawline = readLine()
-  check(rawline == "com.akavel.mana.v1", "bad first line, expected 'com.akavel.mana.v1', got: '$1'", rawline)
+  CHECK(rawline == "com.akavel.mana.v1", "bad first line, expected 'com.akavel.mana.v1', got: '$1'", rawline)
 
   # Read shadow repo path
   var line = readLine().split ' '
-  check(line.len == 2, "bad shadow line, expected 'shadow ' and urlencoded path, got: '$1'", line.join " ")
+  CHECK(line.len == 2, "bad shadow line, expected 'shadow ' and urlencoded path, got: '$1'", line.join " ")
   let shadow = line[1].urldecode.GitRepo
 
   # Verify shadow repo is clean
-  check(shadow.gitStatus().len == 0, "shadow git repo not clean: $1", shadow)
+  CHECK(shadow.gitStatus().len == 0, "shadow git repo not clean: $1", shadow)
 
   # Read handler definitions, initialize each handler
   var handlers: Table[string, Handler]
   while true:
     line = readLine().split ' '
-    check(line.len > 0, "unexpected empty line")
+    CHECK(line.len > 0, "unexpected empty line")
     if line[0] != "handle":
       unread = line.join " "
       break
-    check(line.len >= 3, "line missing prefix or command: '$1'", line.join " ")
-    check(not line[1].string.contains(AllChars - {'a'..'z', '0'..'9', '_'}), "only [a-z0-9_] allowed in prefix, got: '$1'", line[1])
+    CHECK(line.len >= 3, "line missing prefix or command: '$1'", line.join " ")
+    CHECK(not line[1].string.contains(AllChars - {'a'..'z', '0'..'9', '_'}), "only [a-z0-9_] allowed in prefix, got: '$1'", line[1])
     var
       prefix = line[1].string
       command = line[2].urldecode.string
@@ -81,7 +80,7 @@ proc main() =
   proc toHandler(path: GitFile): tuple[h: Handler, p: GitSubfile] =
     # echo "-", path.string
     let sep = path.string.find '/'
-    check(sep > 0, "invalid path (missing slash or empty prefix): $1", path)
+    CHECK(sep > 0, "invalid path (missing slash or empty prefix): $1", path)
     let subpath = path.string[sep+1..^1].GitSubfile
     return (handlers[path.string[0..<sep]], subpath)
 
@@ -97,7 +96,7 @@ proc main() =
     else:
       removeFile shadowpath
   # Verify that prerequisites match disk contents
-  check(shadow.gitStatus.len == 0, "real disk contents differ from expected prerequisites; check git diff in shadow repo: " & shadow.string)
+  CHECK(shadow.gitStatus.len == 0, "real disk contents differ from expected prerequisites; check git diff in shadow repo: " & shadow.string)
 
   # List all files present in shadow repo
   # FIXME: [LATER]: how to make inshadow work as Set[GitFile]?
@@ -106,10 +105,10 @@ proc main() =
   # Read wanted files, and write them to git repo
   while true:
     line = readLine().split ' '
-    check(line.len > 0, "expected 'want' line or 'affect' line, got empty line")
+    CHECK(line.len > 0, "expected 'want' line or 'affect' line, got empty line")
     case line[0].string
     of "want":
-      check(line.len == 2, "expected urlencoded path after 'want' in: '$1'", line.join " ")
+      CHECK(line.len == 2, "expected urlencoded path after 'want' in: '$1'", line.join " ")
       let path = line[1].urldecode.checkGitFile
       let ospath = shadow.ospath path
       createDir(ospath.parentDir)
@@ -117,7 +116,7 @@ proc main() =
       var fh = open(ospath, mode = fmWrite)
       while true:
         let rawline = readLine()
-        check(rawline.len > 0, "unexpected empty line in input")
+        CHECK(rawline.len > 0, "unexpected empty line in input")
         if rawline.string[0] != ' ':
           unread = rawline
           break
@@ -134,11 +133,11 @@ proc main() =
     removeFile shadow.ospath path.GitFile
   # For new files, verify they are absent on disk
   for f in shadow.gitStatus:
-    check(f.status != '?' or not f.path.toHandler.detect, "file expected absent, but found on disk: $1", f.path)
+    CHECK(f.status != '?' or not f.path.toHandler.detect, "file expected absent, but found on disk: $1", f.path)
 
   # Read final 'affect' line
   rawline = readLine()
-  check(rawline == "affect", "expected final 'affect' line, got: '$1'", rawline)
+  CHECK(rawline == "affect", "expected final 'affect' line, got: '$1'", rawline)
 
   # Render files to their places on disk!
   for f in shadow.gitStatus:
@@ -188,7 +187,7 @@ proc rawGitLines(repo: GitRepo, args: varargs[string]): seq[TaintedString] =
     continue
   close(p)
   # TODO: [LATER]: throw exception instead of dying
-  check(p.peekExitCode() == 0, "command 'git $1' returned non-zero exit code: $2\n$3", args.join " ", $p.peekExitCode())
+  CHECK(p.peekExitCode() == 0, "command 'git $1' returned non-zero exit code: $2\n$3", args.join " ", $p.peekExitCode())
 
 proc git(repo: GitRepo, args: varargs[string]) =
   discard repo.rawGitLines(args)
@@ -201,10 +200,10 @@ proc gitStatus(repo: GitRepo): seq[GitStatus] =
   # FIXME: read all stdout & stderr, split into lines later -- so that we can print error message when needed
   for line in repo.rawGitLines("status", "--porcelain", "-uall", "--ignored", "--no-renames"):
     if line == "": continue
-    check(line.len >= 4, "line from git status too short: " & line.string)
-    check(line.string[3] != '"', "whitespace and special characters not yet supported in paths: " & line.string[3..^1])
+    CHECK(line.len >= 4, "line from git status too short: " & line.string)
+    CHECK(line.string[3] != '"', "whitespace and special characters not yet supported in paths: " & line.string[3..^1])
     let info = (status: line.string[1], path: line[3..^1].checkGitFile)
-    check(info.status in " MAD?", "unexpected status from git in line: " & line.string)
+    CHECK(info.status in " MAD?", "unexpected status from git in line: " & line.string)
     # if info.status notin " MAD?": die "unexpected status from git in line: " & line.string  # {' ', 'M', 'A', 'D', '?'}
     if info.status != ' ':
       result.add info
@@ -212,20 +211,20 @@ proc gitStatus(repo: GitRepo): seq[GitStatus] =
 proc ospath(repo: GitRepo, path: GitFile): string =
   repo.string / path.string
 
-proc check(cond: bool, errmsg: string, args: varargs[string, string]) =
+proc CHECK(cond: bool, errmsg: string, args: varargs[string, string]) =
   if not cond: die(errmsg % args)
 
 proc checkGitFile(s: TaintedString): GitFile =
-  check(s.len > 0, "empty path")
+  CHECK(s.len > 0, "empty path")
   const supported = {'a'..'z', 'A'..'Z', '0'..'9', '_', '/', '.', '-'}
-  check((AllChars - supported) notin s.string, "TODO: unsupported character in path: $1", s)
-  proc check_no(pattern, msg: string) =
-    check(pattern notin "/" & s.string & "/", "$1: found $2 in path: $3", msg, pattern, s)
+  CHECK((AllChars - supported) notin s.string, "TODO: unsupported character in path: $1", s)
+  proc CHECK_NO(pattern, msg: string) =
+    CHECK(pattern notin "/" & s.string & "/", "$1: found $2 in path: $3", msg, pattern, s)
   # FIXME: also sanitize other Windows-specific stuff, like 'nul' or 'con' in filenames
   # FIXME: properly handle case-insensitive filesystems (Windows, Mac?)
-  check_no("//", "duplicate slash, or leading/trailing slash")
-  check_no("/../", "relative path")
-  check_no("/./", "denormalized path")
+  CHECK_NO("//", "duplicate slash, or leading/trailing slash")
+  CHECK_NO("/../", "relative path")
+  CHECK_NO("/./", "denormalized path")
   return s.GitFile
 
 proc startHandler(command: string, args: openArray[string]): Handler =
@@ -278,7 +277,7 @@ proc `<<`(ph: PathHandler, args: openArray[string]): seq[TaintedString] =
 
 proc detect(ph: PathHandler): bool =
   let rs = ph << ["detect", ph.p.string]
-  check(rs.len == 3, "bad result in response to 'detect $1': $2", ph.p, rs.join " ")
+  CHECK(rs.len == 3, "bad result in response to 'detect $1': $2", ph.p, rs.join " ")
   case rs[2].string
   of "present": return true
   of "absent": return false
