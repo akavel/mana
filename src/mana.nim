@@ -120,6 +120,8 @@ proc main() =
     of "affect":
       unread = line.join " "
       break
+    else:
+      die "expected 'want' or 'affect' line, got: " & string(line.join " ")
   # Remove from shadow repo any files that are not wanted
   for path in inshadow:
     removeFile shadow.ospath path.GitFile
