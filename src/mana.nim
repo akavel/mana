@@ -6,6 +6,7 @@ import sets
 import streams
 import strutils
 import tables
+import terminal
 import uri
 
 when isMainModule:
@@ -35,6 +36,8 @@ func join(t: seq[TaintedString], sep: string): TaintedString =
 proc main() =
   # TODO: if shadow directory does not exist, do `mkdir -p` and `git init` for it
   # TODO: allow "dry run" - to verify what would be done/changed on disk (stop before rendering files to disk)
+
+  system.addQuitProc(resetAttributes)
 
   # helpers
   var unread = "".TaintedString
@@ -229,7 +232,9 @@ proc startHandler(command: string, args: openArray[string]): Handler =
   p.inputStream.writeLine "com.akavel.mana.v1.rq"
   let rs = p.outputStream.readLine
   if rs != "com.akavel.mana.v1.rs":
+    stderr.setForegroundColor(fgRed)
     stderr.writeLine "ERROR: expected handshake 'com.akavel.mana.v1.rs' from handler '$1', got:\n$2" % [command, rs.string]
+    stderr.resetAttributes()
     p.inputStream.close
     while not p.outputStream.atEnd:
       stderr.writeLine p.outputStream.readLine.string
@@ -258,7 +263,9 @@ proc `<<`(ph: PathHandler, args: openArray[string]): seq[TaintedString] =
     if rs[i].urldecode.string != args[i]:
       ok = false
   if not ok:
+    stderr.setForegroundColor(fgRed)
     stderr.writeLine "ERROR: expected response to '$1' from handler, got:\n$2" % [query, string(rs.join " ")]
+    stderr.resetAttributes()
     h.inputStream.close
     while not h.outputStream.atEnd:
       stderr.writeLine h.outputStream.readLine.string
