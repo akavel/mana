@@ -18,9 +18,10 @@ end
 -- https://raspberrypi.stackexchange.com/a/67353
 want "boot/ssh" ""
 
--- Original contents
+-- Set static IP
+-- https://raspberrypi.stackexchange.com/a/59661
 want "boot/cmdline.txt" [[
-dwc_otg.lpm_enable=0 console=serial0,115200 console=tty1 root=/dev/mmcblk0p7 rootfstype=ext4 elevator=deadline fsck.repair=yes rootwait quiet init=/usr/lib/raspi-config/init_resize.sh splash plymouth.ignore-serial-consoles sdhci.debug_quirks2=4
+dwc_otg.lpm_enable=0 console=serial0,115200 console=tty1 root=/dev/mmcblk0p7 rootfstype=ext4 elevator=deadline fsck.repair=yes rootwait ip=192.168.0.195 quiet init=/usr/lib/raspi-config/init_resize.sh splash plymouth.ignore-serial-consoles sdhci.debug_quirks2=4
 ]]
 
 mana:write [[
