@@ -3,7 +3,7 @@ local proc = assert(io.popen('mana', 'w'))
 proc:write [[
 com.akavel.mana.v1
 shadow c:\prog\shadow
-handle c lua53 mana/winfs.lua c
+handle c lua53 mana/winfs.lua 39b9d89e-9522-45a3-a12b-450f027d0bf0
 handle path lua53 mana/winpath.lua
 handle home lua53 mana/winhome.lua
 ]]

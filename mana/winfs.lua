@@ -3,9 +3,14 @@ local winfs = {}
 local arg = arg
 _G.arg = nil
 
-function winfs.fordisk(letter)
-  if not string.match(letter, '^[a-zA-Z]$') then
-    error(('disk must be one-letter, got: %q'):format(letter))
+-- winfs.fordisk returns a handler for affecting files on a Windows disk
+-- (partition) identified by a UUID. To get UUIDs of currently connected disks
+-- on Windows, run `mountvol` command.
+function winfs.fordisk(uuid)
+  local uuids = winfs.diskUUIDs()
+  local letter = uuids[uuid:lower()]
+  if not letter or letter == '' then
+    error(('disk for uuid %q not found; run `mountvol` to see what is available'):format(uuid))
   end
   return {
     exists = function(path)
@@ -70,6 +75,47 @@ function winfs.mkdirp(ospath)
     -- TODO: make it silent when directory already exists
     os.execute("mkdir " .. parent .. " 2>nul >nul")
   end
+end
+
+function winfs.diskUUIDs()
+  -- Fragment of example output to parse:
+  --[[
+  Possible values for VolumeName along with current mount points are:
+
+      \\?\Volume{39b9d89e-9522-45a3-a12b-450f027d0bf0}\
+          C:\
+
+      \\?\Volume{1e143f42-c648-498d-91a4-d86f91cbc714}\
+          *** NO MOUNT POINTS ***
+
+      \\?\Volume{94f8509a-079a-44b0-91f4-85769f3e2fea}\
+          *** NO MOUNT POINTS ***
+  ]]
+  local pUuid = '^%s*\\\\%?\\Volume{(.*)}\\%s*$'
+  local pDisk = '([A-Z]):\\'
+  local pNoDisk = '*** NO MOUNT POINTS ***'
+
+  local map = {}
+
+  local p = assert(io.popen('mountvol', 'r'))
+  while true do
+    local line = p:read '*l'
+    if not line then break end
+    local uuid = line:match(pUuid)
+    if uuid then
+      local mount = p:read('*l'):gsub('^%s*',''):gsub('%s*$','')
+      local disk = mount:match('^'..pDisk..'$')
+      if mount == pNoDisk then
+        map[uuid:lower()] = ''
+      elseif disk then
+        map[uuid:lower()] = disk
+      else
+        error(('unexpected format of mount point for UUID %s: %s'):format(uuid, mount))
+      end
+    end
+  end
+  p:close()
+  return map
 end
 
 if arg then
