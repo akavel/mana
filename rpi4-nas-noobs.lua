@@ -24,6 +24,13 @@ want "boot/cmdline.txt" [[
 dwc_otg.lpm_enable=0 console=serial0,115200 console=tty1 root=/dev/mmcblk0p7 rootfstype=ext4 elevator=deadline fsck.repair=yes rootwait ip=192.168.0.195 quiet init=/usr/lib/raspi-config/init_resize.sh splash plymouth.ignore-serial-consoles sdhci.debug_quirks2=4
 ]]
 
+-- Original WiFi config
+want "boot/wpa_supplicant.conf" [[
+ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev
+ap_scan=1
+update_config=1
+]]
+
 mana:write [[
 affect
 ]]
