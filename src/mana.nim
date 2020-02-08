@@ -189,7 +189,7 @@ proc rawGitLines(repo: GitRepo, args: varargs[string]): seq[TaintedString] =
     continue
   close(p)
   # TODO: [LATER]: throw exception instead of dying
-  CHECK(p.peekExitCode() == 0, "command 'git $1' returned non-zero exit code: $2\n$3", args.join " ", $p.peekExitCode())
+  CHECK(p.peekExitCode() == 0, "command 'git $1' returned non-zero exit code: $2", args.join " ", $p.peekExitCode())
 
 proc git(repo: GitRepo, args: varargs[string]) =
   discard repo.rawGitLines(args)
