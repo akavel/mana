@@ -29,6 +29,7 @@ want "boot/wpa_supplicant.conf" ([[
 ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev
 ap_scan=1
 update_config=1
+country=PL
 
 network={
 ]] .. require "_wifi" .. [[
