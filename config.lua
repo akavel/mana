@@ -3,12 +3,12 @@ local proc = assert(io.popen('mana', 'w'))
 proc:write [[
 com.akavel.mana.v1
 shadow c:\prog\shadow
-handle c lua53 mana/winfs.lua 39b9d89e-9522-45a3-a12b-450f027d0bf0
-handle path lua53 mana/winpath.lua
-handle home lua53 mana/winhome.lua
+handle c lua53 handler/winfs.lua 39b9d89e-9522-45a3-a12b-450f027d0bf0
+handle path lua53 handler/winpath.lua
+handle home lua53 handler/winhome.lua
 ]]
--- TODO: `handle 0install lua53 mana/zeroinstall.lua`
--- TODO: `handle choco lua53 mana/chocolatey.lua`
+-- TODO: `handle 0install lua53 handler/zeroinstall.lua`
+-- TODO: `handle choco lua53 handler/chocolatey.lua`
 -- TODO: add refreshenv support copied from chocolatey
 
 mana = { wanted = {} }

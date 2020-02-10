@@ -2,7 +2,7 @@ local mana = assert(io.popen('mana', 'w'))
 mana:write [[
 com.akavel.mana.v1
 shadow c:\prog\shadow-rpi4-nas-noobs
-handle boot lua53 mana/winfs.lua 4a8bd31f-4939-11ea-96ee-4074e03cda01
+handle boot lua53 handler/winfs.lua 4a8bd31f-4939-11ea-96ee-4074e03cda01
 ]]
 
 function want(path)
