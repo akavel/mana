@@ -14,6 +14,13 @@ function want(path)
   end
 end
 
+--[[
+lua53 -e "for i=2,20 do print(i) local p=assert(io.popen(('ping 192.168.0.%d -n 1'):format(i))) local d=p:read'*a' p:close() if not d:match'Destination host unreachable' then print(d) end end"
+2
+
+--> 192.168.0.16 on my net as of now
+]]
+
 -- Enable SSH server in NOOBS
 -- https://raspberrypi.stackexchange.com/a/67353
 want "boot/ssh" ""
@@ -25,6 +32,8 @@ console=serial0,115200 console=tty1 root=PARTUUID=093bedcc-02 rootfstype=ext4 el
 ]]
 
 -- WiFi config
+--   ssid="..."
+--   psk="..."
 want "boot/wpa_supplicant.conf" ([[
 ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev
 ap_scan=1
