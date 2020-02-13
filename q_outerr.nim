@@ -1,6 +1,6 @@
 import os
 
-stdout.writeLine "some stdout"
+# stdout.writeLine "some stdout"
 stderr.writeLine "some stderr"
 stderr.writeLine "some stderr2"
 stdout.writeLine "some stdout2"
