@@ -18,7 +18,7 @@ proc next() =
   # let fo = readInto(pout, bufo[0].addr, bufo.len)
   var bufe = newString(64)
   var fe = perr.readInto(bufe[0].addr, bufe.len)
-  # var fx = p.waitForExit()
+  var fx = p.waitForExit()
   # await (fo or fe)
   # proc xx(): Future[void] {.async.} =
   #   return (fo or fe)
@@ -27,8 +27,9 @@ proc next() =
     # discard waitFor(fo)
     # echo "await"
     # await fe or fo or fx
+    waitFor(fe or fo or fx)
     # await fe or fo
-    waitFor(fe or fo)
+    # waitFor(fe or fo)
     # echo "got"
     if fo.finished:
       if fo.read > 0:
@@ -42,12 +43,12 @@ proc next() =
         stdout.writeLine("E " & $fe.read() & " " & bufe.substr(0, fe.read()-1 ))
         stdout.flushFile()
       fe = perr.readInto(bufe[0].addr, bufe.len)
-    # if fx.finished:
-    #   echo "X ", fx.read()
-    #   return
-    # echo "fin?"
-    if fo.finished and fe.finished and fo.read==0 and fe.read==0:
+    if fx.finished:
+      echo "X ", fx.read()
       return
+    # echo "fin?"
+    # if fo.finished and fe.finished and fo.read==0 and fe.read==0:
+    #   return
 
 # waitFor next()
 next()
