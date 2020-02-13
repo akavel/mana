@@ -9,8 +9,8 @@ var p = startProcess("q_outerr", options = {})
 var pout = p.outputHandle
 var perr = p.errorHandle
 
-proc next() {.async.} =
-# proc next() =
+# proc next() {.async.} =
+proc next() =
 
   var bufo = newString(1)
   var fo = pout.readInto(bufo[0].addr, bufo.len)
@@ -25,7 +25,8 @@ proc next() {.async.} =
   while true:
     # echo "await"
     # await fe or fo or fx
-    await fe or fo
+    # await fe or fo
+    waitFor(fe or fo)
     # echo "got"
     if fo.finished:
       if fo.read > 0:
@@ -42,5 +43,5 @@ proc next() {.async.} =
     if fo.finished and fe.finished and fo.read==0 and fe.read==0:
       return
 
-waitFor next()
 # waitFor next()
+next()
