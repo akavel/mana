@@ -9,13 +9,17 @@ var pout = p.outputHandle
 var perr = p.errorHandle
 
 proc next() =
-  var bufo = newString(64)
-  var fo = pout.readInto(bufo[0].addr, bufo.len)
-  var bufe = newString(64)
-  var fe = perr.readInto(bufe[0].addr, bufe.len)
-  var fx = p.waitForExit()
+# proc next() {.async.} =
+  var
+    bufo = newString(10)
+    bufe = newString(10)
+    # Futures:
+    fo = pout.readInto(bufo[0].addr, bufo.len)
+    fe = perr.readInto(bufe[0].addr, bufe.len)
+    fx = p.waitForExit()
   while true:
     waitFor(fe or fo or fx)
+    # await fe or fo or fx
     if fo.finished:
       if fo.read > 0:
         echo "O ", fo.read(), " ", bufo.substr(0, fo.read()-1)
@@ -29,3 +33,4 @@ proc next() =
       return
 
 next()
+# waitFor next()
