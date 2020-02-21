@@ -1,10 +1,16 @@
 local posixfs = {}
 
+local arg = arg
+_G.arg = nil
+
 function posixfs.exists(path)
   return posixfs.osexists(posixfs.ospath(path))
 end
 function posixfs.query(path, shadowpath)
   posixfs.copy(posixfs.ospath(path), shadowpath)
+end
+function posixfs.apply(path, shadowpath)
+  posixfs.osapply(posixfs.ospath(path), shadowpath)
 end
 
 function posixfs.ospath(path)
@@ -37,6 +43,10 @@ end
 function posixfs.mkdirp(ospath)
   local parent = ospath:gsub('/[^/]*$', '')
   os.execute("mkdir -p '" .. parent .. "'")
+end
+
+if arg then
+  require 'manaprotocol'.handle(posixfs)
 end
 
 return posixfs
