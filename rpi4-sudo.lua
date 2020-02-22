@@ -37,7 +37,7 @@ ExecStart=/sbin/iw dev wlan0 set power_save %i
 WantedBy=sys-subsystem-net-devices-wlan0.device
 ]]
 
-want "systemctl/wifi_powersave@on" ""
+want "systemctl/wifi_powersave@off" ""
 
 ---------------------------------------------------------
 
