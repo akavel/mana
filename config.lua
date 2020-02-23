@@ -40,6 +40,16 @@ for name, text in pairs(oneliners) do
   want("c/bin/" .. name .. ".bat")("@" .. text .. " %*")
 end
 
+want "home/.gitconfig" [[
+[user]
+	email = czapkofan@gmail.com
+	name = Mateusz Czapliński
+[alias]
+	kdiff3 = difftool --tool=kdiff3 --dir-diff
+[merge]
+	conflictstyle = diff3
+]]
+
 want "path/c/bin" ""
 want "path/C/Users/Mateusz/.nimble/bin" ""
 
