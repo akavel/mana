@@ -61,7 +61,7 @@ proc main() =
   CHECK(shadow.gitStatus().len == 0, "shadow git repo not clean: $1", shadow)
 
   # Read handler definitions, initialize each handler
-  var handlers: Table[string, Handler]
+  var handlers = initTable[string, Handler]()
   while true:
     line = readLine().split ' '
     CHECK(line.len > 0, "unexpected empty line")
@@ -230,7 +230,7 @@ proc CHECK(cond: bool, errmsg: string, args: varargs[string, string]) =
 
 proc checkGitFile(s: TaintedString): GitFile =
   CHECK(s.len > 0, "empty path")
-  const supported = {'a'..'z', 'A'..'Z', '0'..'9', '_', '/', '.', '-'}
+  const supported = {'a'..'z', 'A'..'Z', '0'..'9', '_', '/', '.', '-', '@'}
   CHECK((AllChars - supported) notin s.string, "TODO: unsupported character in path: $1", s)
   proc CHECK_NO(pattern, msg: string) =
     CHECK(pattern notin "/" & s.string & "/", "$1: found $2 in path: $3", msg, pattern, s)
