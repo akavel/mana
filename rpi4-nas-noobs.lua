@@ -5,6 +5,8 @@ shadow c:\prog\shadow-rpi4-nas-noobs
 handle boot lua53 handler/winfs.lua 4a8bd31d-4939-11ea-96ee-4074e03cda01
 ]]
 
+-- TODO: authorized_keys: ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAuLKyzgasGVcn3OkEoF0YF2X4fcQoWdNsLT/dwnY1Ym rpi4-sf7-git-ed25519
+
 function want(path)
   return function(contents)
     mana:write("want " .. path .. "\n")
