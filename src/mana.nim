@@ -61,7 +61,7 @@ proc main() =
   CHECK(shadow.gitStatus().len == 0, "shadow git repo not clean: $1", shadow)
 
   # Read handler definitions, initialize each handler
-  var handlers = initTable[string, Handler]()
+  var handlers: Table[string, Handler]
   while true:
     line = readLine().split ' '
     CHECK(line.len > 0, "unexpected empty line")

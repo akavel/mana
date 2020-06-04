@@ -11,4 +11,4 @@ bin           = @["mana"]
 
 # Dependencies
 
-requires "nim >= 0.19.4"
+requires "nim >= 1.2.0"
