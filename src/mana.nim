@@ -13,8 +13,6 @@ import uri
 when isMainModule:
   main()
 
-# TODO: s/stderr.writeLine/LOG
-
 # Input protocol: (eggex specification - see: https://www.oilshell.org/release/0.7.pre5/doc/eggex.html)
 #
 #  HANDSHAKE = / 'com.akavel.mana.v1' CR? LF /
@@ -74,7 +72,7 @@ proc main() =
       prefix = line[1].string
       command = line[2].urldecode.string
       args = line[3..^1].mapIt(it.urldecode.string)
-    stderr.writeLine "handler " & prefix & " " & command & " " & args.join(" ")
+    LOG "handler " & prefix & " " & command & " " & args.join " "
     handlers[prefix] = startHandler(command, args)
   proc toHandler(path: GitFile): tuple[h: Handler, p: GitSubfile] =
     # echo "-", path.string
@@ -156,7 +154,7 @@ proc main() =
 
 proc die(msg: varargs[string, `$`]) =
   raise newException(CatchableError, msg.join "")
-  # stderr.writeLine "error: " & msg.join ""
+  # LOG "error: " & msg.join ""
   # quit 1
 
 type
@@ -171,7 +169,7 @@ proc gitFiles(repo: GitRepo, args: varargs[string]): seq[GitFile] =
 # FIXME: add also a command gitZStrings for NULL-separated strings
 # TODO: [LATER]: write an iterator variant of this proc
 proc rawGitLines(repo: GitRepo, args: varargs[string]): seq[TaintedString] =
-  stderr.writeLine "# cd " & repo.string & "; git " & args.join " "
+  LOG "# cd " & repo.string & "; git " & args.join " "
   var p = startProcess("git", workingDir=repo.string, args=args, options={poUsePath})
   # echo repo.string, " git ", args
   var outp = outputStream(p)
@@ -180,8 +178,7 @@ proc rawGitLines(repo: GitRepo, args: varargs[string]): seq[TaintedString] =
   while not outp.atEnd:
     # FIXME: implement better readLine
     if (let l = outp.readLine(); l.len > 0):
-      stderr.writeLine "##" & l.string
-      # echo " ", l.string
+      LOG "##" & l.string
       result.add l
   while p.peekExitCode() == -1:
     continue
@@ -226,6 +223,13 @@ proc ospath(repo: GitRepo, path: GitFile): string =
 proc CHECK(cond: bool, errmsg: string, args: varargs[string, string]) =
   if not cond: die(errmsg % args)
 
+proc LOG(msg: string) =
+  stdout.writeLine msg
+proc LOG_ERROR(msg: string) =
+  stderr.setForegroundColor(fgRed)
+  stderr.writeLine "ERROR: " & msg
+  stderr.resetAttributes()
+
 proc checkGitFile(s: TaintedString): GitFile =
   CHECK(s.len > 0, "empty path")
   const supported = {'a'..'z', 'A'..'Z', '0'..'9', '_', '/', '.', '-', '@'}
@@ -246,12 +250,10 @@ proc startHandler(command: string, args: openArray[string]): Handler =
   p.inputStream.flush
   let rs = p.outputStream.readLine
   if rs != "com.akavel.mana.v1.rs":
-    stderr.setForegroundColor(fgRed)
-    stderr.writeLine "ERROR: expected handshake 'com.akavel.mana.v1.rs' from handler '$1', got:\n$2" % [command, rs.string]
-    stderr.resetAttributes()
+    LOG_ERROR "expected handshake 'com.akavel.mana.v1.rs' from handler '$1', got:\n$2" % [command, rs.string]
     p.inputStream.close
     while not p.outputStream.atEnd:
-      stderr.writeLine p.outputStream.readLine.string
+      LOG p.outputStream.readLine.string
     quit(1)
   return p.Handler
 
@@ -266,7 +268,7 @@ type
 
 proc `<<`(ph: PathHandler, args: openArray[string]): seq[TaintedString] =
   let query = args.map(urlencode).join(" ")
-  stderr.writeLine query
+  LOG query
   let h = ph.h.Process
   h.inputStream.writeLine query
   h.inputStream.flush
@@ -278,12 +280,10 @@ proc `<<`(ph: PathHandler, args: openArray[string]): seq[TaintedString] =
       ok = false
     inc(i)
   if not ok:
-    stderr.setForegroundColor(fgRed)
-    stderr.writeLine "ERROR: expected response to '$1' from handler, got:\n$2" % [query, string(rs.join " ")]
-    stderr.resetAttributes()
+    LOG_ERROR "expected response to '$1' from handler, got:\n$2" % [query, string(rs.join " ")]
     h.inputStream.close
     while not h.outputStream.atEnd:
-      stderr.writeLine h.outputStream.readLine.string
+      LOG h.outputStream.readLine.string
     quit(1)
   return rs
 
