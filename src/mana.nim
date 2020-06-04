@@ -70,13 +70,11 @@ proc main() =
       break
     CHECK(line.len >= 3, "line missing prefix or command: '$1'", line.join " ")
     CHECK(not line[1].string.contains(AllChars - {'a'..'z', '0'..'9', '_'}), "only [a-z0-9_] allowed in prefix, got: '$1'", line[1])
-    var
+    let
       prefix = line[1].string
       command = line[2].urldecode.string
-      args: seq[string]
-    for i in 3 ..< len(line):
-      args.add line[i].urldecode.string
-    stderr.writeLine "handler " & prefix & " " & command & " " & (args.join " ")
+      args = line[3..^1].mapIt(it.urldecode.string)
+    stderr.writeLine "handler " & prefix & " " & command & " " & args.join(" ")
     handlers[prefix] = startHandler(command, args)
   proc toHandler(path: GitFile): tuple[h: Handler, p: GitSubfile] =
     # echo "-", path.string
