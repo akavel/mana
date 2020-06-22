@@ -1,6 +1,7 @@
 {.experimental: "codeReordering".}
 import os
 import osproc
+import pegs
 import sequtils
 import sets
 import streams
@@ -24,6 +25,30 @@ when isMainModule:
 #
 #  INPUT = / HANDSHAKE SHADOW HANDLER+ FILE* AFFECT /
 
+template `->`(a, b: Peg): Peg = sequence(a, b)
+
+const
+  # hex digit
+  pegHex = charSet {'0'..'9', 'a'..'f', 'A'..'F'}
+  # urlencoded string
+  pegUrlencoded = +(
+    (term"%" -> pegHex -> pegHex) /
+    (charSet {'a'..'z', 'A'..'Z', '-', '.', '_', '~'})) # RFC 3986 2.3.
+  # end of line - optional CR followed by LF
+  pegEOL = ?term"\r" -> term"\n"  # FIXME: is "\n" correct here when compiled on Windows?
+
+  pegHandshake = term"com.akavel.mana.v1" -> pegEOL
+  pegShadow    = term"shadow " -> capture(pegUrlencoded) -> pegEOL
+  pegHandler   = term"handle " ->
+                   capture(+charSet {'a'..'z', '0'..'9', '_'}) ->
+                   +(term" " -> pegUrlencoded) -> pegEOL
+  pegLines     = *(term" " -> capture(*!pegEOL) -> pegEOL)
+  pegFile      = term"want " -> pegUrlencoded -> pegEOL -> pegLines
+  pegAffect    = term"affect" -> pegEOL
+
+  pegInput = pegHandshake -> pegShadow -> +pegHandler -> *pegFile -> pegAffect
+
+
 func `==`(t: TaintedString, s: string): bool =
   t.string == s
 func split[T](t: TaintedString, sep: T): seq[TaintedString] =
@@ -44,16 +69,17 @@ proc main() =
       result = unread
       unread = "".TaintedString
     else:
-      result = stdin.readLine
+      result = stdin.readLine & "\n"
 
   # Read handshake
   var rawline = readLine()
-  CHECK(rawline == "com.akavel.mana.v1", "bad first line, expected 'com.akavel.mana.v1', got: '$1'", rawline)
+  CHECK(rawline =~ pegHandshake, "bad first line, expected 'com.akavel.mana.v1', got: '$1'", rawline)
 
   # Read shadow repo path
-  var line = readLine().split ' '
-  CHECK(line.len == 2, "bad shadow line, expected 'shadow ' and urlencoded path, got: '$1'", line.join " ")
-  let shadow = line[1].urldecode.GitRepo
+  rawline = readLine()
+  var matches: seq[string]
+  CHECK(rawline =~ pegShadow, "bad shadow line, expected 'shadow ' and urlencoded path, got: '$1'", rawline)
+  let shadow = matches[0].urldecode.GitRepo
 
   # Verify shadow repo is clean
   CHECK(shadow.gitStatus().len == 0, "shadow git repo not clean: $1", shadow)
