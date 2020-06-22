@@ -1,9 +1,10 @@
 {.experimental: "codeReordering".}
+import options
 import os
 import osproc
-import pegs
 import sequtils
 import sets
+from sugar import dup
 import streams
 import strutils
 import tables
@@ -11,8 +12,8 @@ import terminal
 import unicode
 import uri
 
-when isMainModule:
-  main()
+import npeg
+import result
 
 # Input protocol: (eggex specification - see: https://www.oilshell.org/release/0.7.pre5/doc/eggex.html)
 #
@@ -25,29 +26,37 @@ when isMainModule:
 #
 #  INPUT = / HANDSHAKE SHADOW HANDLER+ FILE* AFFECT /
 
-template `->`(a, b: Peg): Peg = sequence(a, b)
+grammar "input":
+  STREAM <-
+    Handshake *
+    Shadow *
+    +Handler *
+    *File *
+    Affect
 
-const
-  # hex digit
-  pegHex = charSet {'0'..'9', 'a'..'f', 'A'..'F'}
-  # urlencoded string
-  pegUrlencoded = +(
-    (term"%" -> pegHex -> pegHex) /
-    (charSet {'a'..'z', 'A'..'Z', '-', '.', '_', '~'})) # RFC 3986 2.3.
-  # end of line - optional CR followed by LF
-  pegEOL = ?term"\r" -> term"\n"  # FIXME: is "\n" correct here when compiled on Windows?
+  Handshake <- "com.akavel.mana.v1" * eol
+  Shadow    <- "shadow " * >urlencoded * eol
+  Handler   <- "handle " * >simple_word * +(" " * >urlencoded) * eol
+  File      <- file_name * (*file_line)
+  file_name <- "want " * >urlencoded * eol
+  file_line <- " " * >(*char) * eol
+  Affect    <- "affect" * eol
 
-  pegHandshake = term"com.akavel.mana.v1" -> pegEOL
-  pegShadow    = term"shadow " -> capture(pegUrlencoded) -> pegEOL
-  pegHandler   = term"handle " ->
-                   capture(+charSet {'a'..'z', '0'..'9', '_'}) ->
-                   +(term" " -> pegUrlencoded) -> pegEOL
-  pegLines     = *(term" " -> capture(*!pegEOL) -> pegEOL)
-  pegFile      = term"want " -> pegUrlencoded -> pegEOL -> pegLines
-  pegAffect    = term"affect" -> pegEOL
 
-  pegInput = pegHandshake -> pegShadow -> +pegHandler -> *pegFile -> pegAffect
+  eol <- ?"\r" * "\n"  # FIXME: is "\n" correct when compiled on Windows?
+  urlencoded <- +(
+    ("%" * hex * hex) |
+    Alpha | Digit | "-" | "." | "_" | "~")  # RFC 3986 2.3.
+  hex <- {'0'..'9', 'a'..'f', 'A'..'F'}
+  simple_word <- +{'a'..'z', '0'..'9', '_'}
+  char <- 1 - {'\r', '\n'}
 
+
+when isMainModule:
+  main()
+
+
+# FIXME: use custom TaintedString (original one breaks stdlib too much)
 
 func `==`(t: TaintedString, s: string): bool =
   t.string == s
@@ -72,14 +81,13 @@ proc main() =
       result = stdin.readLine & "\n"
 
   # Read handshake
-  var rawline = readLine()
-  CHECK(rawline =~ pegHandshake, "bad first line, expected 'com.akavel.mana.v1', got: '$1'", rawline)
+  let handshake = readLine() =~ input.Handshake
+  CHECK(handshake.isOk, "bad first line, expected 'com.akavel.mana.v1', got: '$1'", handshake.error)
 
   # Read shadow repo path
-  rawline = readLine()
-  var matches: seq[string]
-  CHECK(rawline =~ pegShadow, "bad shadow line, expected 'shadow ' and urlencoded path, got: '$1'", rawline)
-  let shadow = matches[0].urldecode.GitRepo
+  let rawShadow = readLine() =~ input.Shadow
+  CHECK(rawShadow.isOk, "bad shadow line, expected 'shadow ' and urlencoded path, got: '$1'", rawShadow.error)
+  let shadow = rawShadow.get[0].urldecode.GitRepo
 
   # Verify shadow repo is clean
   CHECK(shadow.gitStatus().len == 0, "shadow git repo not clean: $1", shadow)
@@ -87,17 +95,14 @@ proc main() =
   # Read handler definitions, initialize each handler
   var handlers: Table[string, Handler]
   while true:
-    line = readLine().split ' '
-    CHECK(line.len > 0, "unexpected empty line")
-    if line[0] != "handle":
-      unread = line.join " "
+    let rawHandler = readLine() =~ input.Handler
+    if not rawHandler.isOk:
+      unread = rawHandler.error & "\n"
       break
-    CHECK(line.len >= 3, "line missing prefix or command: '$1'", line.join " ")
-    CHECK(not line[1].string.contains(AllChars - {'a'..'z', '0'..'9', '_'}), "only [a-z0-9_] allowed in prefix, got: '$1'", line[1])
     let
-      prefix = line[1].string
-      command = line[2].urldecode.string
-      args = line[3..^1].mapIt(it.urldecode.string)
+      prefix = rawHandler.get[0]
+      command = rawHandler.get[1].urldecode
+      args = rawHandler.get[2..^1].map(urldecode)
     LOG "handler " & prefix & " " & command & " " & args.join " "
     handlers[prefix] = startHandler(command, args)
   proc toHandler(path: GitFile): tuple[h: Handler, p: GitSubfile] =
@@ -127,30 +132,29 @@ proc main() =
 
   # Read wanted files, and write them to git repo
   while true:
-    line = readLine().split ' '
-    CHECK(line.len > 0, "expected 'want' line or 'affect' line, got empty line")
-    case line[0].string
-    of "want":
-      CHECK(line.len == 2, "expected urlencoded path after 'want' in: '$1'", line.join " ")
-      let path = line[1].urldecode.checkGitFile
-      let ospath = shadow.ospath path
-      createDir(ospath.parentDir)
-      # FIXME: [LATER] allow emitting CR-terminated lines (by allowing binary files somehow)
-      var fh = open(ospath, mode = fmWrite)
-      while true:
-        let rawline = readLine()
-        CHECK(rawline.len > 0, "unexpected empty line in input")
-        if rawline.string[0] != ' ':
-          unread = rawline
-          break
-        fh.writeLine rawline[1..^1].string
-      fh.close()
-      inshadow.del path.string.toLower
-    of "affect":
-      unread = line.join " "
+    let rawFile = readLine() =~ input.file_name
+    if not rawFile.isOk:
+      unread = rawFile.error & "\n"
       break
-    else:
-      die "expected 'want' or 'affect' line, got: " & string(line.join " ")
+    let
+      path = rawFile.get[0].urldecode.checkGitFile
+      ospath = shadow.ospath path
+    createDir(ospath.parentDir)
+    # FIXME: [LATER] allow emitting CR-terminated lines (by allowing binary files somehow)
+    var fh = open(ospath, mode = fmWrite)
+    while true:
+      let rawdata = readLine() =~ input.file_line
+      if not rawdata.isOk:
+        unread = rawdata.error & "\n"
+        break
+      fh.writeLine rawdata.get[0].string
+    fh.close()
+    inshadow.del path.string.toLower
+
+  # Verify final 'affect' line
+  let rawAffect = readLine() =~ input.Affect
+  CHECK(rawAffect.isOk, "expected 'want' or 'affect' line, got: '$1'", rawAffect.error)
+
   # Remove from shadow repo any files that are not wanted
   # TODO: remove them in reverse-alphabetical order!
   for _, path in inshadow:
@@ -158,10 +162,6 @@ proc main() =
   # For new files, verify they are absent on disk
   for f in shadow.gitStatus:
     CHECK(f.status != '?' or not f.path.toHandler.detect, "file expected absent, but found on disk: $1", f.path)
-
-  # Read final 'affect' line
-  rawline = readLine()
-  CHECK(rawline == "affect", "expected final 'affect' line, got: '$1'", rawline)
 
   # Render files to their places on disk!
   for f in shadow.gitStatus:
@@ -326,4 +326,17 @@ proc gather_to(ph: PathHandler, ospath: string) =
 
 proc affect(ph: PathHandler, ospath: string) =
   discard ph << ["affect", ph.p.string, ospath]
+
+type Match = Result[seq[string], string]
+
+template `=~`(s: string, pattern: untyped): Match =
+  # If s exactly matches npeg pattern, returns captures as success;
+  # otherwise, returns s with trimmed EOL as failure"""
+  let
+    v = patt(pattern)
+    m = v.match(s)
+  if m.ok and m.matchLen == s.len:
+    Match.ok m.captures
+  else:
+    Match.err s.dup(stripLineEnd)
 
