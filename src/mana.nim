@@ -55,7 +55,6 @@ grammar "input":
 when isMainModule:
   main()
 
-
 # FIXME: use custom TaintedString (original one breaks stdlib too much)
 
 func `==`(t: TaintedString, s: string): bool =
@@ -64,6 +63,16 @@ func split[T](t: TaintedString, sep: T): seq[TaintedString] =
   t.string.split(sep).seq[:TaintedString]
 func join(t: seq[TaintedString], sep: string): TaintedString =
   t.seq[:string].join(sep).TaintedString
+func `&`(t: TaintedString, s: string): TaintedString =
+  (t.string & s).TaintedString
+func `&`(s: string, t: TaintedString): TaintedString =
+  (s & t.string).TaintedString
+func `&`(s, t: TaintedString): TaintedString =
+  s & t.string
+func stripLineEnd(t: var TaintedString) =
+  t.string.stripLineEnd
+func `$`(t: TaintedString): string =
+  t.string
 
 proc main() =
   # TODO: if shadow directory does not exist, do `mkdir -p` and `git init` for it
@@ -78,7 +87,7 @@ proc main() =
       result = unread
       unread = "".TaintedString
     else:
-      result = stdin.readLine & "\n"
+      result = stdin.readLine.TaintedString & "\n"
 
   # Read handshake
   let handshake = readLine() =~ input.Handshake
@@ -100,9 +109,9 @@ proc main() =
       unread = rawHandler.error & "\n"
       break
     let
-      prefix = rawHandler.get[0]
-      command = rawHandler.get[1].urldecode
-      args = rawHandler.get[2..^1].map(urldecode)
+      prefix = rawHandler.get[0].string
+      command = rawHandler.get[1].urldecode.string
+      args = rawHandler.get[2..^1].mapIt(it.urldecode.string)
     LOG "handler " & prefix & " " & command & " " & args.join " "
     handlers[prefix] = startHandler(command, args)
   proc toHandler(path: GitFile): tuple[h: Handler, p: GitSubfile] =
@@ -205,7 +214,7 @@ proc rawGitLines(repo: GitRepo, args: varargs[string]): seq[TaintedString] =
     # FIXME: implement better readLine
     if (let l = outp.readLine(); l.len > 0):
       LOG "##" & l.string
-      result.add l
+      result.add l.TaintedString
   while p.peekExitCode() == -1:
     continue
   close(p)
@@ -298,7 +307,7 @@ proc `<<`(ph: PathHandler, args: openArray[string]): seq[TaintedString] =
   let h = ph.h.Process
   h.inputStream.writeLine query
   h.inputStream.flush
-  let rs = h.outputStream.readLine.split " "
+  let rs = h.outputStream.readLine.TaintedString.split " "
   var ok = rs.len >= args.len and rs[0] == args[0] & "ed"
   var i = 1
   while ok and i < args.len:
@@ -327,16 +336,19 @@ proc gather_to(ph: PathHandler, ospath: string) =
 proc affect(ph: PathHandler, ospath: string) =
   discard ph << ["affect", ph.p.string, ospath]
 
-type Match = Result[seq[string], string]
+type Match = Result[seq[TaintedString], TaintedString]
 
-template `=~`(s: string, pattern: untyped): Match =
+template `=~`(s: TaintedString, pattern: untyped): Match =
   # If s exactly matches npeg pattern, returns captures as success;
   # otherwise, returns s with trimmed EOL as failure"""
   let
     v = patt(pattern)
-    m = v.match(s)
+    m = v.match(s.string)
   if m.ok and m.matchLen == s.len:
-    Match.ok m.captures
+    Match.ok m.captures.mapIt(it.TaintedString)
   else:
     Match.err s.dup(stripLineEnd)
+
+type TaintedString = distinct string
+func len(s: TaintedString): auto = s.string.len
 

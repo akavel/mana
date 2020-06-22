@@ -1,2 +1,0 @@
-#--taintMode:on
-
