@@ -13,7 +13,7 @@ import unicode
 import uri
 
 import npeg
-import result
+import results
 
 # Input protocol: (eggex specification - see: https://www.oilshell.org/release/0.7.pre5/doc/eggex.html)
 #
@@ -55,25 +55,6 @@ grammar "input":
 when isMainModule:
   main()
 
-# FIXME: use custom TaintedString (original one breaks stdlib too much)
-
-func `==`(t: TaintedString, s: string): bool =
-  t.string == s
-func split[T](t: TaintedString, sep: T): seq[TaintedString] =
-  t.string.split(sep).seq[:TaintedString]
-func join(t: seq[TaintedString], sep: string): TaintedString =
-  t.seq[:string].join(sep).TaintedString
-func `&`(t: TaintedString, s: string): TaintedString =
-  (t.string & s).TaintedString
-func `&`(s: string, t: TaintedString): TaintedString =
-  (s & t.string).TaintedString
-func `&`(s, t: TaintedString): TaintedString =
-  s & t.string
-func stripLineEnd(t: var TaintedString) =
-  t.string.stripLineEnd
-func `$`(t: TaintedString): string =
-  t.string
-
 proc main() =
   # TODO: if shadow directory does not exist, do `mkdir -p` and `git init` for it
   # TODO: allow "dry run" - to verify what would be done/changed on disk (stop before rendering files to disk)
@@ -87,7 +68,7 @@ proc main() =
       result = unread
       unread = "".TaintedString
     else:
-      result = stdin.readLine.TaintedString & "\n"
+      result = (stdin.readLine & "\n").TaintedString
 
   # Read handshake
   let handshake = readLine() =~ input.Handshake
@@ -106,7 +87,7 @@ proc main() =
   while true:
     let rawHandler = readLine() =~ input.Handler
     if not rawHandler.isOk:
-      unread = rawHandler.error & "\n"
+      unread = rawHandler.error & "\n".TaintedString
       break
     let
       prefix = rawHandler.get[0].string
@@ -143,7 +124,7 @@ proc main() =
   while true:
     let rawFile = readLine() =~ input.file_name
     if not rawFile.isOk:
-      unread = rawFile.error & "\n"
+      unread = rawFile.error & "\n".TaintedString
       break
     let
       path = rawFile.get[0].urldecode.checkGitFile
@@ -154,7 +135,7 @@ proc main() =
     while true:
       let rawdata = readLine() =~ input.file_line
       if not rawdata.isOk:
-        unread = rawdata.error & "\n"
+        unread = rawdata.error & "\n".TaintedString
         break
       fh.writeLine rawdata.get[0].string
     fh.close()
@@ -187,7 +168,7 @@ proc main() =
   # Finalize the deployment
   shadow.git "commit", "-m", "deployment", "--allow-empty"
 
-proc die(msg: varargs[string, `$`]) =
+proc die(msg: varargs[string]) =
   raise newException(CatchableError, msg.join "")
   # LOG "error: " & msg.join ""
   # quit 1
@@ -299,6 +280,35 @@ proc urlencode[T](s: T): string =
 
 type
   Handler = distinct Process
+
+# NOTE: using custom TaintedString (original one breaks stdlib too much)
+type TaintedString = distinct string
+func len(s: TaintedString): auto = s.string.len
+func `==`(t: TaintedString, s: string): bool =
+  t.string == s
+func split[T](t: TaintedString, sep: T): seq[TaintedString] =
+  t.string.split(sep).seq[:TaintedString]
+func join(t: seq[TaintedString], sep: string): TaintedString =
+  t.seq[:string].join(sep).TaintedString
+func `&`(s, t: TaintedString): TaintedString =
+  (s.string & t.string).TaintedString
+func stripLineEnd(t: var TaintedString) =
+  t.string.stripLineEnd
+
+type Match = Result[seq[TaintedString], TaintedString]
+
+template `=~`(s: TaintedString, pattern: untyped): Match =
+  # If s exactly matches npeg pattern, returns captures as success;
+  # otherwise, returns s with trimmed EOL as failure"""
+  let
+    v = patt(pattern)
+    m = v.match(s.string)
+  if m.ok and m.matchLen == s.len:
+    Match.ok m.captures.mapIt(it.TaintedString)
+  else:
+    Match.err s.dup(stripLineEnd)
+
+type
   PathHandler = tuple[h: Handler, p: GitSubfile]
 
 proc `<<`(ph: PathHandler, args: openArray[string]): seq[TaintedString] =
@@ -315,7 +325,7 @@ proc `<<`(ph: PathHandler, args: openArray[string]): seq[TaintedString] =
       ok = false
     inc(i)
   if not ok:
-    LOG_ERROR "expected response to '$1' from handler, got:\n$2" % [query, string(rs.join " ")]
+    LOG_ERROR "expected response to '$1' from handler, got:\n$2" % [query, rs.join" ".string]
     h.inputStream.close
     while not h.outputStream.atEnd:
       LOG h.outputStream.readLine.string
@@ -328,27 +338,11 @@ proc detect(ph: PathHandler): bool =
   case rs[2].string
   of "present": return true
   of "absent": return false
-  else: die "bad result in response to 'detect $1': $2" % [ph.p.string, string(rs.join " ")]
+  else: die "bad result in response to 'detect $1': $2" % [ph.p.string, rs.join" ".string]
 
 proc gather_to(ph: PathHandler, ospath: string) =
   discard ph << ["gather", ph.p.string, ospath]
 
 proc affect(ph: PathHandler, ospath: string) =
   discard ph << ["affect", ph.p.string, ospath]
-
-type Match = Result[seq[TaintedString], TaintedString]
-
-template `=~`(s: TaintedString, pattern: untyped): Match =
-  # If s exactly matches npeg pattern, returns captures as success;
-  # otherwise, returns s with trimmed EOL as failure"""
-  let
-    v = patt(pattern)
-    m = v.match(s.string)
-  if m.ok and m.matchLen == s.len:
-    Match.ok m.captures.mapIt(it.TaintedString)
-  else:
-    Match.err s.dup(stripLineEnd)
-
-type TaintedString = distinct string
-func len(s: TaintedString): auto = s.string.len
 
