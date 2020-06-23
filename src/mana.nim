@@ -4,7 +4,7 @@ import os
 import osproc
 import sequtils
 import sets
-from sugar import dup
+import sugar
 import streams
 import strutils
 import tables
@@ -53,9 +53,20 @@ grammar "input":
 
 
 when isMainModule:
-  main()
+  run(
+    () => stdin.readLine,
+    rawGitLines,
+    startHandler)
+  # main()
 
-proc main() =
+type
+  lineReader: proc(): string
+  gitCaller: proc(repo: string, args: varargs[string]): seq[string]
+  Handler: proc(args: openArray[string]): seq[string]
+  handlerOpener: proc(command: string, args: openArray[string]): Handler
+
+proc run(lineReader: lineReader, gitCaller: gitCaller, handlerOpener: handlerOpener) =
+# proc main() =
   # TODO: if shadow directory does not exist, do `mkdir -p` and `git init` for it
   # TODO: allow "dry run" - to verify what would be done/changed on disk (stop before rendering files to disk)
 
@@ -68,7 +79,7 @@ proc main() =
       result = unread
       unread = "".TaintedString
     else:
-      result = (stdin.readLine & "\n").TaintedString
+      result = (lineReader() & "\n").TaintedString
 
   # Read handshake
   let handshake = readLine() =~ input.Handshake
@@ -77,7 +88,9 @@ proc main() =
   # Read shadow repo path
   let rawShadow = readLine() =~ input.Shadow
   CHECK(rawShadow.isOk, "bad shadow line, expected 'shadow ' and urlencoded path, got: '$1'", rawShadow.error.stripEOL)
-  let shadow = rawShadow.get[0].urldecode.GitRepo
+  let shadow = GitRepo(
+    path: rawShadow.get[0].urldecode.string,
+    gitCaller: gitCaller)
 
   # Verify shadow repo is clean
   CHECK(shadow.gitStatus().len == 0, "shadow git repo not clean: $1", shadow)
@@ -94,7 +107,7 @@ proc main() =
       command = rawHandler.get[1].urldecode.string
       args = rawHandler.get[2..^1].mapIt(it.urldecode.string)
     LOG "handler " & prefix & " " & command & " " & args.join " "
-    handlers[prefix] = startHandler(command, args)
+    handlers[prefix] = handlerOpener(command, args)
 
   proc getHandler(path: GitFile): PathHandler =
     let s = path.string.split('/', 2)
@@ -170,7 +183,9 @@ proc main() =
   shadow.git "commit", "-m", "deployment", "--allow-empty"
 
 type
-  GitRepo = distinct string  # repo path
+  GitRepo = object:
+    path: string
+    gitCaller: gitCaller
   GitFile = distinct string  # relative path of a file in a GitRepo
   GitSubfile = distinct string
   GitStatus = tuple[status: char, path: GitFile]
@@ -253,9 +268,6 @@ proc checkGitFile(s: TaintedString): GitFile =
   CHECK_NO("/./", "denormalized path")
   return s.GitFile
 
-type
-  Handler = distinct Process
-
 proc startHandler(command: string, args: openArray[string]): Handler =
   # TODO: use poDaemon option on Windows?
   let p = startProcess(command=command, args=args, options={poUsePath, poStdErrToStdOut})
@@ -268,7 +280,21 @@ proc startHandler(command: string, args: openArray[string]): Handler =
     while not p.outputStream.atEnd:
       LOG p.outputStream.readLine.string
     quit(1)
-  return p.Handler
+
+  return proc(args: openArray[string]): seq[string] =
+    let query = args.map(urlencode).join(" ")
+    LOG query
+    p.inputStream.writeLine query
+    p.inputStream.flush
+    result = p.outputStream.readLine.TaintedString.split " "
+    if result.len < args.len or
+        result[0] != args[0] & "ed" or
+        args[1..^1] != result[1..<args.len].mapIt(it.urldecode.string):
+      LOG_ERROR "expected response to '$1' from handler, got:\n$2" % [query, result.join" ".string]
+      p.inputStream.close
+      while not p.outputStream.atEnd:
+        LOG p.outputStream.readLine.string
+      quit(1)
 
 proc urldecode(s: TaintedString): TaintedString =
   decodeUrl(s.string, decodePlus=false).TaintedString
@@ -324,7 +350,7 @@ proc `<<`(ph: PathHandler, args: openArray[string]): seq[TaintedString] =
     quit(1)
 
 proc detect(ph: PathHandler): bool =
-  let rs = ph << ["detect", ph.p.string]
+  let rs = ph.h("detect", ph.p.string)
   CHECK(rs.len == 3, "bad result in response to 'detect $1': $2", ph.p, rs.join " ")
   case rs[2].string
   of "present": return true
@@ -332,8 +358,8 @@ proc detect(ph: PathHandler): bool =
   else: die "bad result in response to 'detect $1': $2" % [ph.p.string, rs.join" ".string]
 
 proc gather_to(ph: PathHandler, ospath: string) =
-  discard ph << ["gather", ph.p.string, ospath]
+  discard ph.h("gather", ph.p.string, ospath)
 
 proc affect(ph: PathHandler, ospath: string) =
-  discard ph << ["affect", ph.p.string, ospath]
+  discard ph.h("affect", ph.p.string, ospath)
 
