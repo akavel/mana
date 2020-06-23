@@ -107,8 +107,9 @@ proc main() =
   # 'absent' prereqs here, as we don't have enough info; those will be
   # checked later.
   for path in shadow.gitFiles("ls-files", "--cached"):
-    var ph = path.toHandler
-    var shadowpath = shadow.ospath path
+    let
+      ph = path.toHandler
+      shadowpath = shadow.ospath path
     if ph.detect:
       ph.gather_to shadowpath
     else:
