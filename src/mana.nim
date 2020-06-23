@@ -95,7 +95,8 @@ proc main() =
       args = rawHandler.get[2..^1].mapIt(it.urldecode.string)
     LOG "handler " & prefix & " " & command & " " & args.join " "
     handlers[prefix] = startHandler(command, args)
-  proc toHandler(path: GitFile): tuple[h: Handler, p: GitSubfile] =
+
+  proc getHandler(path: GitFile): tuple[h: Handler, p: GitSubfile] =
     # echo "-", path.string
     let s = path.string.split('/', 2)
     CHECK(s.len == 2 and s[0] != "", "invalid path (missing slash or empty prefix): $1", path)
@@ -108,7 +109,7 @@ proc main() =
   # checked later.
   for path in shadow.gitFiles("ls-files", "--cached"):
     let
-      ph = path.toHandler
+      ph = path.getHandler
       shadowpath = shadow.ospath path
     if ph.detect:
       ph.gather_to shadowpath
@@ -152,16 +153,16 @@ proc main() =
     removeFile shadow.ospath path.GitFile
   # For new files, verify they are absent on disk
   for f in shadow.gitStatus:
-    CHECK(f.status != '?' or not f.path.toHandler.detect, "file expected absent, but found on disk: $1", f.path)
+    CHECK(f.status != '?' or not f.path.getHandler.detect, "file expected absent, but found on disk: $1", f.path)
 
   # Render files to their places on disk!
   for f in shadow.gitStatus:
     case f.status
     of 'M', '?':
-      f.path.toHandler.affect shadow.ospath(f.path)
+      f.path.getHandler.affect shadow.ospath(f.path)
       shadow.git "add", "--", f.path.string
     of 'D':
-      f.path.toHandler.affect shadow.ospath(f.path)
+      f.path.getHandler.affect shadow.ospath(f.path)
       shadow.git "rm", "--", f.path.string
     else:
       die "unexpected status $1 of file in shadow repo: $2" % [$f.status, f.path.string]
