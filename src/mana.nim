@@ -96,7 +96,7 @@ proc main() =
     LOG "handler " & prefix & " " & command & " " & args.join " "
     handlers[prefix] = startHandler(command, args)
 
-  proc getHandler(path: GitFile): tuple[h: Handler, p: GitSubfile] =
+  proc getHandler(path: GitFile): PathHandler =
     let s = path.string.split('/', 2)
     CHECK(s.len == 2 and s[0] != "", "invalid path (missing slash or empty prefix): $1", path)
     return (handlers[s[0]], s[1].GitSubfile)
