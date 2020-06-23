@@ -60,10 +60,10 @@ when isMainModule:
   # main()
 
 type
-  lineReader: proc(): string
-  gitCaller: proc(repo: string, args: varargs[string]): seq[string]
-  Handler: proc(args: openArray[string]): seq[string]
-  handlerOpener: proc(command: string, args: openArray[string]): Handler
+  lineReader = proc(): string
+  gitCaller = proc(repo: string, args: varargs[string]): seq[string]
+  Handler = proc(rawArgs: varargs[string]): seq[string]
+  handlerOpener = proc(command: string, args: openArray[string]): Handler
 
 proc run(lineReader: lineReader, gitCaller: gitCaller, handlerOpener: handlerOpener) =
 # proc main() =
@@ -93,7 +93,7 @@ proc run(lineReader: lineReader, gitCaller: gitCaller, handlerOpener: handlerOpe
     gitCaller: gitCaller)
 
   # Verify shadow repo is clean
-  CHECK(shadow.gitStatus().len == 0, "shadow git repo not clean: $1", shadow)
+  CHECK(shadow.gitStatus().len == 0, "shadow git repo not clean: $1", shadow.path)
 
   # Read handler definitions, initialize each handler
   var handlers: Table[string, Handler]
@@ -128,7 +128,7 @@ proc run(lineReader: lineReader, gitCaller: gitCaller, handlerOpener: handlerOpe
     else:
       removeFile shadowpath
   # Verify that prerequisites match disk contents
-  CHECK(shadow.gitStatus.len == 0, "real disk contents differ from expected prerequisites; check git diff in shadow repo: " & shadow.string)
+  CHECK(shadow.gitStatus.len == 0, "real disk contents differ from expected prerequisites; check git diff in shadow repo: " & shadow.path)
 
   # List all files present in shadow repo
   # FIXME: [LATER]: how to make inshadow work as Table[GitFile]?
@@ -172,48 +172,48 @@ proc run(lineReader: lineReader, gitCaller: gitCaller, handlerOpener: handlerOpe
     case f.status
     of 'M', '?':
       f.path.getHandler.affect shadow.ospath(f.path)
-      shadow.git "add", "--", f.path.string
+      discard shadow.git("add", "--", f.path.string)
     of 'D':
       f.path.getHandler.affect shadow.ospath(f.path)
-      shadow.git "rm", "--", f.path.string
+      discard shadow.git("rm", "--", f.path.string)
     else:
       die "unexpected status $1 of file in shadow repo: $2" % [$f.status, f.path.string]
 
   # Finalize the deployment
-  shadow.git "commit", "-m", "deployment", "--allow-empty"
+  discard shadow.git("commit", "-m", "deployment", "--allow-empty")
 
 type
-  GitRepo = object:
+  GitRepo = object
     path: string
     gitCaller: gitCaller
   GitFile = distinct string  # relative path of a file in a GitRepo
   GitSubfile = distinct string
   GitStatus = tuple[status: char, path: GitFile]
 
+proc git(repo: GitRepo, args: varargs[string]): seq[TaintedString] =
+  repo.gitCaller(repo.path, args).seq[:TaintedString]
+
 proc gitFiles(repo: GitRepo, args: varargs[string]): seq[GitFile] =
-  repo.rawGitLines(args).map(checkGitFile)  # FIXME: [LATER]: use gitZStrings
+  repo.git(args).map(checkGitFile)  # FIXME: [LATER]: use gitZStrings
 
 # FIXME: add also a command gitZStrings for NULL-separated strings
 # TODO: [LATER]: write an iterator variant of this proc
-proc rawGitLines(repo: GitRepo, args: varargs[string]): seq[TaintedString] =
+proc rawGitLines(repo: string, args: varargs[string]): seq[string] =
   LOG "# cd " & repo.string & "; git " & args.join " "
-  var p = startProcess("git", workingDir=repo.string, args=args, options={poUsePath})
-  var outp = outputStream(p)
+  let p = startProcess("git", workingDir=repo.string, args=args, options={poUsePath})
+  let outp = outputStream(p)
   close inputStream(p)
   # TODO: what about errorStream(p) ?
   while not outp.atEnd:
     # FIXME: implement better readLine
     if (let l = outp.readLine(); l.len > 0):
       LOG "##" & l.string
-      result.add l.TaintedString
+      result.add l
   while p.peekExitCode() == -1:
     continue
   close(p)
   # TODO: [LATER]: throw exception instead of dying
   CHECK(p.peekExitCode() == 0, "command 'git $1' returned non-zero exit code: $2", args.join " ", $p.peekExitCode())
-
-proc git(repo: GitRepo, args: varargs[string]) =
-  discard repo.rawGitLines(args)
 
 proc gitStatus(repo: GitRepo): seq[GitStatus] =
   ## gitStatus returns an an array of files in the shadow repository that have
@@ -226,7 +226,7 @@ proc gitStatus(repo: GitRepo): seq[GitStatus] =
   ## TODO: support whitespace and other nonprintable characters without error
   # FIXME: don't use die in this func, raise exceptions instead
   # FIXME: read all stdout & stderr, split into lines later -- so that we can print error message when needed
-  for line in repo.rawGitLines("status", "--porcelain", "-uall", "--ignored", "--no-renames"):
+  for line in repo.git("status", "--porcelain", "-uall", "--ignored", "--no-renames"):
     if line == "": continue
     CHECK(line.len >= 4, "line from git status too short: " & line.string)
     # TODO: support space & special chars: "If a filename contains whitespace
@@ -240,7 +240,7 @@ proc gitStatus(repo: GitRepo): seq[GitStatus] =
       result.add info
 
 proc ospath(repo: GitRepo, path: GitFile): string =
-  repo.string / path.string
+  repo.path / path.string
 
 proc die(msg: varargs[string]) =
   raise newException(CatchableError, msg.join "")
@@ -281,16 +281,14 @@ proc startHandler(command: string, args: openArray[string]): Handler =
       LOG p.outputStream.readLine.string
     quit(1)
 
-  return proc(args: openArray[string]): seq[string] =
-    let query = args.map(urlencode).join(" ")
-    LOG query
-    p.inputStream.writeLine query
+  return proc(rawArgs: openArray[string]): seq[string] =
+    p.inputStream.writeLine rawArgs.join" "
     p.inputStream.flush
-    result = p.outputStream.readLine.TaintedString.split " "
-    if result.len < args.len or
-        result[0] != args[0] & "ed" or
-        args[1..^1] != result[1..<args.len].mapIt(it.urldecode.string):
-      LOG_ERROR "expected response to '$1' from handler, got:\n$2" % [query, result.join" ".string]
+    result = p.outputStream.readLine.split" "
+    if result.len < rawArgs.len or
+        result[0] != rawArgs[0] & "ed" or
+        rawArgs[1..^1] != result[1..<rawArgs.len]:
+      LOG_ERROR "expected response to '$1' from handler, got:\n$2" % [rawArgs.join" ", result.join" ".string]
       p.inputStream.close
       while not p.outputStream.atEnd:
         LOG p.outputStream.readLine.string
@@ -333,20 +331,14 @@ template `=~`(s: TaintedString, pattern: untyped): Match =
 type
   PathHandler = tuple[h: Handler, p: GitSubfile]
 
-proc `<<`(ph: PathHandler, args: openArray[string]): seq[TaintedString] =
-  let query = args.map(urlencode).join(" ")
-  LOG query
-  let h = ph.h.Process
-  h.inputStream.writeLine query
-  h.inputStream.flush
-  result = h.outputStream.readLine.TaintedString.split " "
+proc `<<`(ph: PathHandler, args: seq[string]): seq[TaintedString] =
+  let query = args.map(urlencode)
+  LOG query.join " "
+  result = ph.h(query).seq[:TaintedString]
   if result.len < args.len or
       result[0] != args[0] & "ed" or
       args[1..^1] != result[1..<args.len].mapIt(it.urldecode.string):
-    LOG_ERROR "expected response to '$1' from handler, got:\n$2" % [query, result.join" ".string]
-    h.inputStream.close
-    while not h.outputStream.atEnd:
-      LOG h.outputStream.readLine.string
+    LOG_ERROR "expected response to '$1' from handler, got:\n$2" % [query.join" ", result.join" ".string]
     quit(1)
 
 proc detect(ph: PathHandler): bool =
@@ -355,7 +347,7 @@ proc detect(ph: PathHandler): bool =
   case rs[2].string
   of "present": return true
   of "absent": return false
-  else: die "bad result in response to 'detect $1': $2" % [ph.p.string, rs.join" ".string]
+  else: die "bad result in response to 'detect $1': $2" % [ph.p.string, rs.join " "]
 
 proc gather_to(ph: PathHandler, ospath: string) =
   discard ph.h("gather", ph.p.string, ospath)
