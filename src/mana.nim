@@ -72,11 +72,11 @@ proc main() =
 
   # Read handshake
   let handshake = readLine() =~ input.Handshake
-  CHECK(handshake.isOk, "bad first line, expected 'com.akavel.mana.v1', got: '$1'", handshake.error)
+  CHECK(handshake.isOk, "bad first line, expected 'com.akavel.mana.v1', got: '$1'", handshake.error.stripEOL)
 
   # Read shadow repo path
   let rawShadow = readLine() =~ input.Shadow
-  CHECK(rawShadow.isOk, "bad shadow line, expected 'shadow ' and urlencoded path, got: '$1'", rawShadow.error)
+  CHECK(rawShadow.isOk, "bad shadow line, expected 'shadow ' and urlencoded path, got: '$1'", rawShadow.error.stripEOL)
   let shadow = rawShadow.get[0].urldecode.GitRepo
 
   # Verify shadow repo is clean
@@ -87,7 +87,7 @@ proc main() =
   while true:
     let rawHandler = readLine() =~ input.Handler
     if not rawHandler.isOk:
-      unread = rawHandler.error & "\n".TaintedString
+      unread = rawHandler.error
       break
     let
       prefix = rawHandler.get[0].string
@@ -125,7 +125,7 @@ proc main() =
   while true:
     let rawFile = readLine() =~ input.file_name
     if not rawFile.isOk:
-      unread = rawFile.error & "\n".TaintedString
+      unread = rawFile.error
       break
     let
       path = rawFile.get[0].urldecode.checkGitFile
@@ -136,7 +136,7 @@ proc main() =
     while true:
       let rawdata = readLine() =~ input.file_line
       if not rawdata.isOk:
-        unread = rawdata.error & "\n".TaintedString
+        unread = rawdata.error
         break
       fh.writeLine rawdata.get[0].string
     fh.close()
@@ -144,7 +144,7 @@ proc main() =
 
   # Verify final 'affect' line
   let rawAffect = readLine() =~ input.Affect
-  CHECK(rawAffect.isOk, "expected 'want' or 'affect' line, got: '$1'", rawAffect.error)
+  CHECK(rawAffect.isOk, "expected 'want' or 'affect' line, got: '$1'", rawAffect.error.stripEOL)
 
   # Remove from shadow repo any files that are not wanted
   # TODO: remove them in reverse-alphabetical order!
@@ -288,8 +288,8 @@ func split[T](t: TaintedString, sep: T): seq[TaintedString] =
   t.string.split(sep).seq[:TaintedString]
 func join(t: seq[TaintedString], sep: string): TaintedString =
   t.seq[:string].join(sep).TaintedString
-func stripLineEnd(t: var TaintedString) =
-  t.string.stripLineEnd
+func stripEOL(t: TaintedString): TaintedString =
+  t.string.dup(stripLineEnd).TaintedString
 
 type Match = Result[seq[TaintedString], TaintedString]
 
@@ -302,7 +302,7 @@ template `=~`(s: TaintedString, pattern: untyped): Match =
   if m.ok and m.matchLen == s.len:
     Match.ok m.captures.mapIt(it.TaintedString)
   else:
-    Match.err s.dup(stripLineEnd)
+    Match.err s
 
 type
   PathHandler = tuple[h: Handler, p: GitSubfile]
