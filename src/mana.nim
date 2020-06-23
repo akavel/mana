@@ -97,7 +97,6 @@ proc main() =
     handlers[prefix] = startHandler(command, args)
 
   proc getHandler(path: GitFile): tuple[h: Handler, p: GitSubfile] =
-    # echo "-", path.string
     let s = path.string.split('/', 2)
     CHECK(s.len == 2 and s[0] != "", "invalid path (missing slash or empty prefix): $1", path)
     return (handlers[s[0]], s[1].GitSubfile)
@@ -170,11 +169,6 @@ proc main() =
   # Finalize the deployment
   shadow.git "commit", "-m", "deployment", "--allow-empty"
 
-proc die(msg: varargs[string]) =
-  raise newException(CatchableError, msg.join "")
-  # LOG "error: " & msg.join ""
-  # quit 1
-
 type
   GitRepo = distinct string  # repo path
   GitFile = distinct string  # relative path of a file in a GitRepo
@@ -189,7 +183,6 @@ proc gitFiles(repo: GitRepo, args: varargs[string]): seq[GitFile] =
 proc rawGitLines(repo: GitRepo, args: varargs[string]): seq[TaintedString] =
   LOG "# cd " & repo.string & "; git " & args.join " "
   var p = startProcess("git", workingDir=repo.string, args=args, options={poUsePath})
-  # echo repo.string, " git ", args
   var outp = outputStream(p)
   close inputStream(p)
   # TODO: what about errorStream(p) ?
@@ -206,9 +199,6 @@ proc rawGitLines(repo: GitRepo, args: varargs[string]): seq[TaintedString] =
 
 proc git(repo: GitRepo, args: varargs[string]) =
   discard repo.rawGitLines(args)
-
-proc `[]`[T, U](s: TaintedString, x: HSlice[T, U]): TaintedString =
-  s.string[x].TaintedString
 
 proc gitStatus(repo: GitRepo): seq[GitStatus] =
   ## gitStatus returns an an array of files in the shadow repository that have
@@ -231,12 +221,14 @@ proc gitStatus(repo: GitRepo): seq[GitStatus] =
     CHECK(line.string[3] != '"', "whitespace and special characters not yet supported in paths: " & line.string[3..^1])
     let info = (status: line.string[1], path: line[3..^1].checkGitFile)
     CHECK(info.status in " MAD?", "unexpected status from git in line: " & line.string)
-    # if info.status notin " MAD?": die "unexpected status from git in line: " & line.string  # {' ', 'M', 'A', 'D', '?'}
     if info.status != ' ':
       result.add info
 
 proc ospath(repo: GitRepo, path: GitFile): string =
   repo.string / path.string
+
+proc die(msg: varargs[string]) =
+  raise newException(CatchableError, msg.join "")
 
 proc CHECK(cond: bool, errmsg: string, args: varargs[string, string]) =
   if not cond: die(errmsg % args)
@@ -261,6 +253,9 @@ proc checkGitFile(s: TaintedString): GitFile =
   CHECK_NO("/./", "denormalized path")
   return s.GitFile
 
+type
+  Handler = distinct Process
+
 proc startHandler(command: string, args: openArray[string]): Handler =
   # TODO: use poDaemon option on Windows?
   let p = startProcess(command=command, args=args, options={poUsePath, poStdErrToStdOut})
@@ -280,28 +275,27 @@ proc urldecode(s: TaintedString): TaintedString =
 proc urlencode[T](s: T): string =
   encodeUrl(s.string, usePlus=false)
 
-type
-  Handler = distinct Process
-
 # NOTE: using custom TaintedString (original one breaks stdlib too much)
 type TaintedString = distinct string
 func len(s: TaintedString): auto = s.string.len
 func `==`(t: TaintedString, s: string): bool =
   t.string == s
+func `&`(s, t: TaintedString): TaintedString =
+  (s.string & t.string).TaintedString
+proc `[]`[T, U](s: TaintedString, x: HSlice[T, U]): TaintedString =
+  s.string[x].TaintedString
 func split[T](t: TaintedString, sep: T): seq[TaintedString] =
   t.string.split(sep).seq[:TaintedString]
 func join(t: seq[TaintedString], sep: string): TaintedString =
   t.seq[:string].join(sep).TaintedString
-func `&`(s, t: TaintedString): TaintedString =
-  (s.string & t.string).TaintedString
 func stripLineEnd(t: var TaintedString) =
   t.string.stripLineEnd
 
 type Match = Result[seq[TaintedString], TaintedString]
 
 template `=~`(s: TaintedString, pattern: untyped): Match =
-  # If s exactly matches npeg pattern, returns captures as success;
-  # otherwise, returns s with trimmed EOL as failure"""
+  ## If s exactly matches npeg pattern, returns captures as success;
+  ## otherwise, returns s with trimmed EOL as failure
   let
     v = patt(pattern)
     m = v.match(s.string)
