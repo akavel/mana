@@ -317,20 +317,15 @@ proc `<<`(ph: PathHandler, args: openArray[string]): seq[TaintedString] =
   let h = ph.h.Process
   h.inputStream.writeLine query
   h.inputStream.flush
-  let rs = h.outputStream.readLine.TaintedString.split " "
-  var ok = rs.len >= args.len and rs[0] == args[0] & "ed"
-  var i = 1
-  while ok and i < args.len:
-    if rs[i].urldecode.string != args[i]:
-      ok = false
-    inc(i)
-  if not ok:
-    LOG_ERROR "expected response to '$1' from handler, got:\n$2" % [query, rs.join" ".string]
+  result = h.outputStream.readLine.TaintedString.split " "
+  if result.len < args.len or
+      result[0] != args[0] & "ed" or
+      args[1..^1] != result[1..<args.len].mapIt(it.urldecode.string):
+    LOG_ERROR "expected response to '$1' from handler, got:\n$2" % [query, result.join" ".string]
     h.inputStream.close
     while not h.outputStream.atEnd:
       LOG h.outputStream.readLine.string
     quit(1)
-  return rs
 
 proc detect(ph: PathHandler): bool =
   let rs = ph << ["detect", ph.p.string]
