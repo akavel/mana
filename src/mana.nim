@@ -13,7 +13,7 @@ import unicode
 import uri
 
 import npeg
-import results
+import result
 
 # Input protocol: (eggex specification - see: https://www.oilshell.org/release/0.7.pre5/doc/eggex.html)
 #
