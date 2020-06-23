@@ -97,10 +97,9 @@ proc main() =
     handlers[prefix] = startHandler(command, args)
   proc toHandler(path: GitFile): tuple[h: Handler, p: GitSubfile] =
     # echo "-", path.string
-    let sep = path.string.find '/'
-    CHECK(sep > 0, "invalid path (missing slash or empty prefix): $1", path)
-    let subpath = path.string[sep+1..^1].GitSubfile
-    return (handlers[path.string[0..<sep]], subpath)
+    let s = path.string.split('/', 2)
+    CHECK(s.len == 2 and s[0] != "", "invalid path (missing slash or empty prefix): $1", path)
+    return (handlers[s[0]], s[1].GitSubfile)
 
   # For each prerequisite (i.e., "git add/rm"-ed file), gather corresponding
   # file from disk into shadow repo, so that we can later easily compare them
