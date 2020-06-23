@@ -101,10 +101,11 @@ proc main() =
     CHECK(s.len == 2 and s[0] != "", "invalid path (missing slash or empty prefix): $1", path)
     return (handlers[s[0]], s[1].GitSubfile)
 
-  # For each prerequisite (i.e., "git add/rm"-ed file), gather corresponding
-  # file from disk into shadow repo, so that we can later easily compare them
-  # for differences. NOTE: we can't account for 'absent' prereqs here, as we
-  # don't have enough info; those will be checked later.
+  # For each prerequisite (i.e., "git add/rm"-ed file), gather
+  # corresponding file from disk into shadow repo, so that we can later
+  # easily compare them for differences. NOTE: we can't account for
+  # 'absent' prereqs here, as we don't have enough info; those will be
+  # checked later.
   for path in shadow.gitFiles("ls-files", "--cached"):
     var ph = path.toHandler
     var shadowpath = shadow.ospath path
