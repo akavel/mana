@@ -32,6 +32,16 @@ let oneliners = {
   lua = "lua53",
 } in
 
+let gitconfig = m%"
+[user]
+	email = czapkofan@gmail.com
+	name = Mateusz Czapliński
+[alias]
+	kdiff3 = difftool --tool=kdiff3 --dir-diff
+[merge]
+	conflictstyle = diff3
+"% in
+
 # TODO[LATER]: why doesn't work with `fun path contents => ...` ?
 let want = fun p c => { path = p, contents = c } in
 
@@ -39,6 +49,7 @@ let wants = [
 #  want "home/AppData/Local/nvim/init.vim" (import "vimrc.txt"),
   want "path/c/bin" "",
   want "path/C/Users/Mateusz/.nimble/bin" "",
+  want "home/.gitconfig" gitconfig,
 ] @ (
   oneliners |> std.record.to_array |> std.array.map (fun x => {
     path = "c/bin/%{x.field}.bat",
