@@ -40,8 +40,10 @@ let wants = [
   want "path/c/bin" "",
   want "path/C/Users/Mateusz/.nimble/bin" "",
 ] @ (
-  oneliners |> std.record.to_array |> std.array.map (fun x =>
-    { path = "c/bin/%{x.field}.bat", contents = x.value })
+  oneliners |> std.record.to_array |> std.array.map (fun x => {
+    path = "c/bin/%{x.field}.bat",
+    contents = "@%{x.value} %*"
+  })
 ) in
 
 # TODO: urlencode path
