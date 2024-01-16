@@ -1,14 +1,14 @@
 # USE:
-#     nickel export -f raw win-mana.ncl
+#     nickel export -f raw --field script win-mana.ncl
 #
 # PLAN:
 #  - [x] port mana's config.lua (of Windows laptop No.1)
 #  - [x] refactor to have trees, and only then convert them to 'wants'
 #  - [ ] see akavel/drafts
 
-let shadow_dir = m%"c:\prog\shadow"% in
+let shadow_dir' = m%"c:\prog\shadow"% in
 
-let handlers = {
+let handlers' = {
   c = "lua53 handler/winfs.lua 39b9d89e-9522-45a3-a12b-450f027d0bf0",
   path = "lua53 handler/winpath.lua",
   home = "lua53 handler/winhome.lua",
@@ -51,7 +51,7 @@ let oneliners_to_bat = fun record => record
   |> std.record.from_array
   in
 
-let tree = {
+let tree' = {
   c = {
     bin = oneliners |> oneliners_to_bat,
   },
@@ -65,5 +65,10 @@ let tree = {
   },
 } in
 
-tree |> (import "lib/mana.ncl").windows shadow_dir handlers
+{
+  tree = tree',
+  shadow_dir = shadow_dir',
+  handlers = handlers',
+  script = tree |> (import "lib/mana.ncl").windows shadow_dir handlers,
+}
 
