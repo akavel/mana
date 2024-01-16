@@ -73,4 +73,5 @@ com.akavel.mana.v1
 shadow %{shadow_dir}
 %{ handlers |> std.record.to_array |> std.array.map handlify |> std.string.join "\n" }
 %{ wants |> std.array.map wantify |> std.string.join "\n" }
+affect
 "%
