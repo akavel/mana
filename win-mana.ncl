@@ -2,7 +2,7 @@
 #     nickel export -f raw win-mana.ncl
 #
 # PLAN:
-#  - [ ] port mana's config.lua (of Windows laptop No.1)
+#  - [x] port mana's config.lua (of Windows laptop No.1)
 #  - [ ] refactor to have trees, and only then convert them to 'wants'
 #  - [ ] see akavel/drafts
 
