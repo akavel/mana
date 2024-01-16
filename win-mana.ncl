@@ -3,7 +3,7 @@
 #
 # PLAN:
 #  - [x] port mana's config.lua (of Windows laptop No.1)
-#  - [ ] refactor to have trees, and only then convert them to 'wants'
+#  - [x] refactor to have trees, and only then convert them to 'wants'
 #  - [ ] see akavel/drafts
 
 let shadow_dir = m%"c:\prog\shadow"% in
@@ -42,18 +42,47 @@ let gitconfig = m%"
 	conflictstyle = diff3
 "% in
 
+let oneliners_to_bat = fun record => record
+  |> std.record.to_array
+  |> std.array.map (fun x => {
+      field = "%{x.field}.bat",
+      value = "@%{x.value} %*",
+    })
+  |> std.record.from_array
+  in
+
+let tree = {
+  c = {
+    bin = oneliners |> oneliners_to_bat,
+  },
+  path = {}, # TODO: should auto-gen from 'c' above
+  # TODO: should merge into `tree` based on value of $HOME
+  home = {
+    ".gitconfig" = gitconfig,
+    AppData.Local.nvim."init.vim" = import "vimrc.txt",
+  },
+} in
+
+# NOTE: expects `tree` to only have string leaves.
+# TODO: annotate properly with types/contracts
+let flatten_tree =
+  fun tree =>
+    tree
+    |> (import "leafs.ncl")
+    |> std.array.map (fun x => {
+        path = x |> std.array.drop_last |> std.string.join "/",
+        contents = x |> std.array.last,
+      })
+  in
+
 let want = fun p c => { path = p, contents = c } in
 
 let wants = [
 #  want "home/AppData/Local/nvim/init.vim" (import "vimrc.txt"),
   want "path/c/bin" "",
   want "path/C/Users/Mateusz/.nimble/bin" "",
-  want "home/.gitconfig" gitconfig,
 ] @ (
-  oneliners |> std.record.to_array |> std.array.map (fun x => {
-    path = "c/bin/%{x.field}.bat",
-    contents = "@%{x.value} %*"
-  })
+  tree |> flatten_tree
 ) in
 
 # TODO: urlencode path
