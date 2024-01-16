@@ -19,6 +19,7 @@ let handlers = {
 # TODO[LATER]: add refreshenv support copied from chocolatey
 
 # TODO: make a contract for the contents
+# One-line scripts (~aliases)
 let oneliners = {
   gd = "git diff",
   gds = "git diff --staged",
@@ -35,15 +36,21 @@ let oneliners = {
 let want = fun p c => { path = p, contents = c } in
 
 let wants = [
-#(want "home/AppData/Local/nvim/init.vim" (import "vimrc.txt"))
-#  (want "tmp" "test")
-] in
+#  want "home/AppData/Local/nvim/init.vim" (import "vimrc.txt"),
+  want "path/c/bin" "",
+  want "path/C/Users/Mateusz/.nimble/bin" "",
+] @ (
+  oneliners |> std.record.to_array |> std.array.map (fun x =>
+    { path = "c/bin/%{x.field}.bat", contents = x.value })
+) in
 
 # TODO: urlencode path
-let wantify = fun w => m%"
-want %{w.path}
-  %{w.contents |> std.string.replace "\n" "\n "}
-"% in
+let wantify = fun w =>
+    let body = if std.record.has_field "contents" w && w.contents != ""
+      then "\n %{w.contents |> std.string.replace "\n" "\n "}"
+      else ""
+    in "want %{w.path}%{body}"
+  in
 
 let handlify = fun h =>
   m%"handle %{h.field} %{h.value}"% in
