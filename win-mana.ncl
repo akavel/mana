@@ -56,6 +56,8 @@ let tree = {
     bin = oneliners |> oneliners_to_bat,
   },
   path = {}, # TODO: should auto-gen from 'c' above
+#   want "path/c/bin" "",
+#   want "path/C/Users/Mateusz/.nimble/bin" "",
   # TODO: should merge into `tree` based on value of $HOME
   home = {
     ".gitconfig" = gitconfig,
@@ -63,43 +65,5 @@ let tree = {
   },
 } in
 
-# NOTE: expects `tree` to only have string leaves.
-# TODO: annotate properly with types/contracts
-let flatten_tree =
-  fun tree =>
-    tree
-    |> (import "leafs.ncl")
-    |> std.array.map (fun x => {
-        path = x |> std.array.drop_last |> std.string.join "/",
-        contents = x |> std.array.last,
-      })
-  in
+tree |> (import "lib/mana.ncl").windows shadow_dir handlers
 
-let want = fun p c => { path = p, contents = c } in
-
-let wants = [
-#  want "home/AppData/Local/nvim/init.vim" (import "vimrc.txt"),
-  want "path/c/bin" "",
-  want "path/C/Users/Mateusz/.nimble/bin" "",
-] @ (
-  tree |> flatten_tree
-) in
-
-# TODO: urlencode path
-let wantify = fun w =>
-    let body = if std.record.has_field "contents" w && w.contents != ""
-      then "\n %{w.contents |> std.string.replace "\n" "\n "}"
-      else ""
-    in "want %{w.path}%{body}"
-  in
-
-let handlify = fun h =>
-  m%"handle %{h.field} %{h.value}"% in
-
-m%"
-com.akavel.mana.v1
-shadow %{shadow_dir}
-%{ handlers |> std.record.to_array |> std.array.map handlify |> std.string.join "\n" }
-%{ wants |> std.array.map wantify |> std.string.join "\n" }
-affect
-"%
