@@ -42,7 +42,6 @@ let gitconfig = m%"
 	conflictstyle = diff3
 "% in
 
-# TODO[LATER]: why doesn't work with `fun path contents => ...` ?
 let want = fun p c => { path = p, contents = c } in
 
 let wants = [
