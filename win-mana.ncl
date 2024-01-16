@@ -1,14 +1,22 @@
 # USE:
 #     nickel export -f raw win-mana.ncl
 #
-# GOAL:
-# 
-# com.akavel.mana.v1
-# shadow c:\prog\shadow
-# handle c lua53 handler/winfs.lua 39b9d89e-9522-45a3-a12b-450f027d0bf0
-# handle path lua53 handler/winpath.lua
-# handle home lua53 handler/winhome.lua
-# want home/AppData/Local/nvim/init.vim (require 'vimrc')
+# PLAN:
+#  - [ ] port mana's config.lua (of Windows laptop No.1)
+#  - [ ] refactor to have trees, and only then convert them to 'wants'
+#  - [ ] see akavel/drafts
+
+let shadow_dir = m%"c:\prog\shadow"% in
+
+let handlers = {
+  c = "lua53 handler/winfs.lua 39b9d89e-9522-45a3-a12b-450f027d0bf0",
+  path = "lua53 handler/winpath.lua",
+  home = "lua53 handler/winhome.lua",
+} in
+
+# TODO[LATER]: `handle 0install lua53 handler/zeroinstall.lua`
+# TODO[LATER]: `handle choco lua53 handler/chocolatey.lua`
+# TODO[LATER]: add refreshenv support copied from chocolatey
 
 # TODO: make a contract for the contents
 let oneliners = {
@@ -24,23 +32,25 @@ let oneliners = {
 } in
 
 # TODO[LATER]: why doesn't work with `fun path contents => ...` ?
-let want = fun p c => { "path" = p, "contents" = c } in
+let want = fun p c => { path = p, contents = c } in
 
 let wants = [
-  (want "home/AppData/Local/nvim/init.vim" (import "vimrc.txt"))
+#(want "home/AppData/Local/nvim/init.vim" (import "vimrc.txt"))
+#  (want "tmp" "test")
 ] in
 
 # TODO: urlencode path
-let wantify = fun want => m%"
-want %{want.path}
-  %{want.contents |> std.string.replace "\n" "\n "}
+let wantify = fun w => m%"
+want %{w.path}
+  %{w.contents |> std.string.replace "\n" "\n "}
 "% in
+
+let handlify = fun h =>
+  m%"handle %{h.field} %{h.value}"% in
 
 m%"
 com.akavel.mana.v1
-shadow c:\prog\shadow
-handle c lua53 handler/winfs.lua 39b9d89e-9522-45a3-a12b-450f027d0bf0
-handle path lua53 handler/winpath.lua
-handle home lua53 handler/winhome.lua
-%{wants |> std.array.map wantify |> std.string.join "\n" }
+shadow %{shadow_dir}
+%{ handlers |> std.record.to_array |> std.array.map handlify |> std.string.join "\n" }
+%{ wants |> std.array.map wantify |> std.string.join "\n" }
 "%
