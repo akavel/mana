@@ -1,0 +1,19 @@
+[package]
+name = "mana2"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.74"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[[bin]]
+name = "mana"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1.0.79"
+mlua = { version = "0.9.4", features = ["lua54", "vendored"] }
+path-slash = "0.2.1"
+peg = "0.8.2"
+tempfile = "3.9.0"
+thiserror = "1.0.56"
