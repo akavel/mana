@@ -66,9 +66,12 @@ let tree' = {
 } in
 
 {
-  tree = tree',
-  shadow_dir = shadow_dir',
-  handlers = handlers',
-  script = tree |> (import "lib/mana.ncl").windows shadow_dir handlers,
+  raw = {
+    tree = tree',
+    shadow_dir = shadow_dir',
+    handlers = handlers',
+  },
+  script =
+    raw.tree |> (import "lib/mana.ncl").windows raw.shadow_dir raw.handlers,
 }
 
