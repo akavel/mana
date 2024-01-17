@@ -18,3 +18,5 @@ path-slash = "0.2.1"
 peg = "0.8.2"
 tempfile = "3.9.0"
 thiserror = "1.0.56"
+toml = { version = "0.8.8", features = ["preserve_order"] }
+
