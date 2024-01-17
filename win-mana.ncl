@@ -55,9 +55,10 @@ let tree' = {
   c = {
     bin = oneliners |> oneliners_to_bat,
   },
-  path = {}, # TODO: should auto-gen from 'c' above
-#   want "path/c/bin" "",
-#   want "path/C/Users/Mateusz/.nimble/bin" "",
+  path = {
+    c.bin = "",
+    C.Users.Mateusz.".nimble".bin = "",
+  },
   # TODO: should merge into `tree` based on value of $HOME
   home = {
     ".gitconfig" = gitconfig,
