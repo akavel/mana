@@ -1,18 +1,35 @@
-use anyhow::{bail, Context};
+use anyhow::{bail, Context, Result};
 
-fn main() -> anyhow::Result<()> {
+fn main() -> Result<()> {
     println!("Hello, world!");
-    // Parse input - just parse TOML for now.
+    // Read and parse input - just parse TOML for now.
     // TODO: would prefer to somehow do it in streamed way, maybe
     let input = std::io::read_to_string(std::io::stdin()).context("failure reading stdin")?;
-    let toml = input
+    let script = parse_input_toml(&input)?;
+
+    // TODO: two-way compare: current git <-> results of handlers.gather (use git-workspace)
+    // TODO: 3-way compare: curr git <-> handlers.query results <-> parsed input
+    // TODO: https://github.com/akavel/drafts/blob/main/20231122-001-mana2.md
+    Ok(())
+}
+
+#[derive(Debug)]
+struct Script {
+    pub shadow_dir: String,
+    pub handlers: toml::Table,
+    pub tree: toml::Table,
+}
+
+// Parse input - just parse TOML for now.
+fn parse_input_toml(input: &str) -> Result<Script> {
+    let mut toml = input
         .parse::<toml::Table>()
         .context("failed to parse stdin as TOML")?;
     // println!("PARSED: {toml:?}");
 
     // Extract `shadow_dir` from toml
     // TODO[LATER]: use serde instead to extract, maybe
-    let Some(shadow_dir) = toml.get("shadow_dir") else {
+    let Some(shadow_dir) = toml.remove("shadow_dir") else {
         bail!("Missing 'shadow_dir' in stdin");
     };
     let toml::Value::String(shadow_dir) = shadow_dir else {
@@ -22,7 +39,7 @@ fn main() -> anyhow::Result<()> {
 
     // Extract `handlers` from toml
     // TODO[LATER]: use serde instead to extract, maybe
-    let Some(handlers) = toml.get("handlers") else {
+    let Some(handlers) = toml.remove("handlers") else {
         bail!("Missing 'handlers' in stdin");
     };
     let toml::Value::Table(handlers) = handlers else {
@@ -32,15 +49,15 @@ fn main() -> anyhow::Result<()> {
 
     // Extract `tree` from toml
     // TODO[LATER]: use serde instead to extract, maybe
-    let Some(tree) = toml.get("tree") else {
+    let Some(tree) = toml.remove("tree") else {
         bail!("Missing 'tree' in stdin");
     };
     let toml::Value::Table(tree) = tree else {
         bail!("Expected 'tree' to be table, got: {tree:?}");
     };
-
-    // TODO: two-way compare: current git <-> results of handlers.gather (use git-workspace)
-    // TODO: 3-way compare: curr git <-> handlers.query results <-> parsed input
-    // TODO: https://github.com/akavel/drafts/blob/main/20231122-001-mana2.md
-    Ok(())
+    Ok(Script {
+        shadow_dir,
+        handlers,
+        tree,
+    })
 }
