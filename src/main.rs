@@ -3,6 +3,7 @@ use git2::Repository;
 use std::path::PathBuf;
 // Trait for extending std::path::PathBuf
 use path_slash::PathBufExt as _;
+use unicase::UniCase;
 
 fn main() -> Result<()> {
     println!("Hello, world!");
@@ -33,20 +34,38 @@ fn main() -> Result<()> {
     let head = repo.head()?;
     let head_tree = head.peel_to_tree()?;
     let mut paths = PathSet::new();
+    // TODO: unicode normaliz.: https://stackoverflow.com/q/47813162/#comment82595250_47813878
+    let mut case_insensitive_slash_paths =
+        std::collections::HashMap::<UniCase<String>, String>::new();
     head_tree.walk(git2::TreeWalkMode::PreOrder, |root, entry| {
         if entry.kind() == Some(git2::ObjectType::Blob) {
+            let name = entry.name().unwrap();
+            let slash_path = root.to_string() + name;
+            // TODO: also check if entry already existed here
+            case_insensitive_slash_paths.insert(slash_path.clone().into(), slash_path);
             let parent = PathBuf::from_slash(root);
-            paths.insert(parent.join(entry.name().unwrap()));
+            paths.insert(parent.join(name));
         }
         git2::TreeWalkResult::Ok
     })?;
     // for k in &paths {
     //     println!(" - {k:?}");
     // }
-    paths.extend(script.paths.keys().cloned());
+    for path in script.paths.keys() {
+        let slash_path = path.to_slash().unwrap();
+        let unicase = slash_path.clone().into();
+        if let Some(found) = case_insensitive_slash_paths.get(&unicase) {
+            if found.as_str() != slash_path {
+                bail!("Found casing difference between git path {found:?} and input path {slash_path:?}");
+            }
+        }
+        // TODO: case_insensitive_slash_paths.insert(slash_path, slash_path);
+        paths.insert(path.clone());
+    }
     for k in &paths {
         println!(" - {k:?}");
     }
+
     // TODO: run 'gather' on appropriate handlers for all listed paths, fetching files into the git workspace
 
     // TODO: two-way compare: current git <-> results of handlers.gather (use git-workspace)

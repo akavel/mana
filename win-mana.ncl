@@ -32,7 +32,7 @@ let module = {
     },
     path = {
       c.bin = "",
-      C.Users.Mateusz.".nimble".bin = "",
+      c.Users.Mateusz.".nimble".bin = "",
     },
     # TODO: should merge into `tree` based on value of $HOME
     home = {
