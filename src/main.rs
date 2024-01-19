@@ -49,9 +49,9 @@ fn main() -> Result<()> {
         let LuaValue::Table(ref t) = v else {
             bail!("Handler for {root:?} expected to return Lua table, but got: {v:?}");
         };
-        // if let Ok(init) = v.get("init") {
-        //     println!("INIT for {root:?}");
-        // }
+        if let Ok(init) = t.get::<&str, LuaValue>("init") {
+            println!("INIT for {root:?} = {init:?}");
+        }
         lua_handlers.set(&*root, v).unwrap();
 
         // let mut args = cmd.into_iter();
