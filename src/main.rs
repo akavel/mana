@@ -29,18 +29,22 @@ fn main() -> Result<()> {
         }
     }
 
-    // TODO: make a list of paths in 'tree' and in git
+    // Make a list of paths in 'tree' and in git
     let head = repo.head()?;
     let head_tree = head.peel_to_tree()?;
-    let mut git_paths = PathSet::new();
+    let mut paths = PathSet::new();
     head_tree.walk(git2::TreeWalkMode::PreOrder, |root, entry| {
         if entry.kind() == Some(git2::ObjectType::Blob) {
             let parent = PathBuf::from_slash(root);
-            git_paths.insert(parent.join(entry.name().unwrap()));
+            paths.insert(parent.join(entry.name().unwrap()));
         }
         git2::TreeWalkResult::Ok
     })?;
-    for k in &git_paths {
+    // for k in &paths {
+    //     println!(" - {k:?}");
+    // }
+    paths.extend(script.paths.keys().cloned());
+    for k in &paths {
         println!(" - {k:?}");
     }
     // TODO: run 'gather' on appropriate handlers for all listed paths, fetching files into the git workspace
@@ -119,10 +123,10 @@ fn parse_input_toml(input: &str) -> Result<Script> {
             }
         }
     }
-    for (k, v) in &paths {
-        let n = v.len();
-        println!(" * {k:?} = {n}");
-    }
+    // for (k, v) in &paths {
+    //     let n = v.len();
+    //     println!(" * {k:?} = {n}");
+    // }
 
     Ok(Script {
         shadow_dir,
