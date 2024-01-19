@@ -1,5 +1,6 @@
 use anyhow::{bail, Context, Result};
 use git2::Repository;
+use mlua::prelude::*;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::PathBuf;
 // Trait for extending std::path::PathBuf
@@ -32,7 +33,30 @@ fn main() -> Result<()> {
     }
 
     // TODO: initialize handlers
-    // for
+    let lua = Lua::new();
+    let lua_handlers = lua.create_table().unwrap();
+    for (root, cmd) in script.handlers {
+        if cmd.len() < 2 {
+            bail!("Handler for {root:?} has too few elements - expected 2+, got: {cmd:?}");
+        }
+        if cmd[0] != "lua53" {
+            bail!("FIXME: currently handler[0] must be 'lua53'");
+        }
+        let source = std::fs::read_to_string(&cmd[1])
+            .with_context(|| format!("reading Lua script for handler for {root:?}"))?;
+        // TODO: eval and load returned module - must refactor scripts first
+        let v = lua.load(source).set_name(&cmd[1]).eval::<LuaValue>()?;
+        let LuaValue::Table(ref t) = v else {
+            bail!("Handler for {root:?} expected to return Lua table, but got: {v:?}");
+        };
+        // if let Ok(init) = v.get("init") {
+        //     println!("INIT for {root:?}");
+        // }
+        lua_handlers.set(&*root, v).unwrap();
+
+        // let mut args = cmd.into_iter();
+        // let Some(arg) = args.next
+    }
 
     // Make a list of paths in 'tree' and in git
     let head = repo.head()?;
