@@ -27,6 +27,16 @@ fn main() -> Result<()> {
     }
 
     // TODO: make a list of paths in 'tree' and in git
+    let head = repo.head()?;
+    let head_tree = head.peel_to_tree()?;
+    head_tree.walk(git2::TreeWalkMode::PreOrder, |root, entry| {
+        println!(
+            " - {root}{}  {:?}",
+            entry.name().unwrap_or("?"),
+            entry.kind()
+        );
+        git2::TreeWalkResult::Ok
+    })?;
     // TODO: run 'gather' on appropriate handlers for all listed paths, fetching files into the git workspace
 
     // TODO: two-way compare: current git <-> results of handlers.gather (use git-workspace)
