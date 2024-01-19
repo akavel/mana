@@ -1,4 +1,5 @@
 use anyhow::{bail, Context, Result};
+use git2::Repository;
 
 fn main() -> Result<()> {
     println!("Hello, world!");
@@ -6,6 +7,30 @@ fn main() -> Result<()> {
     // TODO: would prefer to somehow do it in streamed way, maybe
     let input = std::io::read_to_string(std::io::stdin()).context("failure reading stdin")?;
     let script = parse_input_toml(&input)?;
+
+    // TODO: create temporary git worktree
+    let repo = Repository::open(&script.shadow_dir)
+        .context("failure opening 'shadow_dir'")?;
+    // let head_commit = repo.refname_to_id("HEAD")?;
+
+    let head_ref = repo.find_reference("HEAD")?;
+    let work_dir = tempfile::tempdir()?;
+    let work_subdir = work_dir.path().join("tree");
+    // TODO[LATER]: would prefer something that doesn't litter $shadow_dir/.git/ dir
+    let mut worktree_opt = git2::WorktreeAddOptions::new();
+    worktree_opt.reference(Some(&head_ref));
+    // Workaround to try ensuring that created branch is random yet a valid branch name
+    // TODO: would prefer to checkout in --detached mode with no branch creation
+    let branch = "mana".to_string() + work_dir.path().file_name().unwrap().to_str().unwrap();
+    // let work_tree = repo.worktree(work_dir.path().file_name().unwrap().to_str().unwrap(), &work_subdir, Some(&worktree_opt))
+    // let work_tree = repo.worktree("", &work_subdir, Some(&worktree_opt))
+    let work_tree = repo.worktree(&branch, &work_subdir, None)
+        .context("failure initializing git worktree")?;
+    println!("WORK: {:?}", &work_subdir);
+    std::mem::forget(work_dir);
+
+    // TODO: make a list of paths in 'tree' and in git
+    // TODO: run 'gather' on appropriate handlers for all listed paths, fetching files into the git workspace
 
     // TODO: two-way compare: current git <-> results of handlers.gather (use git-workspace)
     // TODO: 3-way compare: curr git <-> handlers.query results <-> parsed input
