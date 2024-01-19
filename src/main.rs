@@ -1,5 +1,6 @@
 use anyhow::{bail, Context, Result};
 use git2::Repository;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::PathBuf;
 // Trait for extending std::path::PathBuf
 use path_slash::PathBufExt as _;
@@ -29,6 +30,9 @@ fn main() -> Result<()> {
             bail!("git 'shadow_dir' repository is not clean (see: git status)");
         }
     }
+
+    // TODO: initialize handlers
+    // for
 
     // Make a list of paths in 'tree' and in git
     let head = repo.head()?;
@@ -74,13 +78,14 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-type PathMap = std::collections::BTreeMap<PathBuf, String>;
-type PathSet = std::collections::BTreeSet<PathBuf>;
+type PathMap = BTreeMap<PathBuf, String>;
+type PathSet = BTreeSet<PathBuf>;
+type Handlers = BTreeMap<String, Vec<String>>;
 
 #[derive(Debug)]
 struct Script {
     pub shadow_dir: String,
-    pub handlers: toml::Table,
+    pub handlers: Handlers,
     pub paths: PathMap,
 }
 
@@ -103,26 +108,36 @@ fn parse_input_toml(input: &str) -> Result<Script> {
 
     // Extract `handlers` from toml
     // TODO[LATER]: use serde instead to extract, maybe
-    let Some(handlers) = toml.remove("handlers") else {
+    let Some(raw_handlers) = toml.remove("handlers") else {
         bail!("Missing 'handlers' in stdin");
     };
-    let toml::Value::Table(handlers) = handlers else {
-        bail!("Expected 'handlers' to be table, got: {handlers:?}");
+    let toml::Value::Table(raw_handlers) = raw_handlers else {
+        bail!("Expected 'handlers' to be table, got: {raw_handlers:?}");
     };
-    println!("HANDL: {handlers:?}");
 
     // Extract `tree` from toml
     // TODO[LATER]: use serde instead to extract, maybe
-    let Some(tree) = toml.remove("tree") else {
+    let Some(raw_tree) = toml.remove("tree") else {
         bail!("Missing 'tree' in stdin");
     };
-    let toml::Value::Table(tree) = tree else {
-        bail!("Expected 'tree' to be table, got: {tree:?}");
+    let toml::Value::Table(raw_tree) = raw_tree else {
+        bail!("Expected 'tree' to be table, got: {raw_tree:?}");
     };
+
+    // Convert handlers to a simple map
+    // TODO[LATER]: preserve original order
+    let mut handlers = Handlers::new();
+    for (k, v) in raw_handlers {
+        let toml::Value::String(s) = v else {
+            bail!("Unexpected type of handler {k:?}, want String, got: {v:?}");
+        };
+        handlers.insert(k, s.split_whitespace().map(str::to_string).collect());
+    }
+    println!("HANDL: {handlers:?}");
 
     // Convert tree to paths map
     let mut paths = PathMap::new();
-    let mut todo = vec![(PathBuf::new(), tree)];
+    let mut todo = vec![(PathBuf::new(), raw_tree)];
     loop {
         let Some((parent, subtree)) = todo.pop() else {
             break;
