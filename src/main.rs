@@ -1,5 +1,8 @@
 use anyhow::{bail, Context, Result};
 use git2::Repository;
+use std::path::PathBuf;
+// Trait for extending std::path::PathBuf
+use path_slash::PathBufExt as _;
 
 fn main() -> Result<()> {
     println!("Hello, world!");
@@ -29,14 +32,17 @@ fn main() -> Result<()> {
     // TODO: make a list of paths in 'tree' and in git
     let head = repo.head()?;
     let head_tree = head.peel_to_tree()?;
+    let mut git_paths = PathSet::new();
     head_tree.walk(git2::TreeWalkMode::PreOrder, |root, entry| {
-        println!(
-            " - {root}{}  {:?}",
-            entry.name().unwrap_or("?"),
-            entry.kind()
-        );
+        if entry.kind() == Some(git2::ObjectType::Blob) {
+            let parent = PathBuf::from_slash(root);
+            git_paths.insert(parent.join(entry.name().unwrap()));
+        }
         git2::TreeWalkResult::Ok
     })?;
+    for k in &git_paths {
+        println!(" - {k:?}");
+    }
     // TODO: run 'gather' on appropriate handlers for all listed paths, fetching files into the git workspace
 
     // TODO: two-way compare: current git <-> results of handlers.gather (use git-workspace)
@@ -45,11 +51,14 @@ fn main() -> Result<()> {
     Ok(())
 }
 
+type PathMap = std::collections::BTreeMap<PathBuf, String>;
+type PathSet = std::collections::BTreeSet<PathBuf>;
+
 #[derive(Debug)]
 struct Script {
     pub shadow_dir: String,
     pub handlers: toml::Table,
-    pub tree: toml::Table,
+    pub paths: PathMap,
 }
 
 // Parse input - just parse TOML for now.
@@ -87,9 +96,37 @@ fn parse_input_toml(input: &str) -> Result<Script> {
     let toml::Value::Table(tree) = tree else {
         bail!("Expected 'tree' to be table, got: {tree:?}");
     };
+
+    // Convert tree to paths map
+    let mut paths = PathMap::new();
+    let mut todo = vec![(PathBuf::new(), tree)];
+    loop {
+        let Some((parent, subtree)) = todo.pop() else {
+            break;
+        };
+        for (key, value) in subtree {
+            let path = parent.join(key);
+            match value {
+                toml::Value::String(s) => {
+                    paths.insert(path, s);
+                }
+                toml::Value::Table(t) => {
+                    todo.push((path, t));
+                }
+                _ => {
+                    bail!("Unexpected type of value at {path:?} in tree: {value}");
+                }
+            }
+        }
+    }
+    for (k, v) in &paths {
+        let n = v.len();
+        println!(" * {k:?} = {n}");
+    }
+
     Ok(Script {
         shadow_dir,
         handlers,
-        tree,
+        paths,
     })
 }
