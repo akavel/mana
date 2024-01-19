@@ -8,26 +8,23 @@ fn main() -> Result<()> {
     let input = std::io::read_to_string(std::io::stdin()).context("failure reading stdin")?;
     let script = parse_input_toml(&input)?;
 
-    // TODO: create temporary git worktree
-    let repo = Repository::open(&script.shadow_dir)
-        .context("failure opening 'shadow_dir'")?;
-    // let head_commit = repo.refname_to_id("HEAD")?;
-
-    let head_ref = repo.find_reference("HEAD")?;
-    let work_dir = tempfile::tempdir()?;
-    let work_subdir = work_dir.path().join("tree");
-    // TODO[LATER]: would prefer something that doesn't litter $shadow_dir/.git/ dir
-    let mut worktree_opt = git2::WorktreeAddOptions::new();
-    worktree_opt.reference(Some(&head_ref));
-    // Workaround to try ensuring that created branch is random yet a valid branch name
-    // TODO: would prefer to checkout in --detached mode with no branch creation
-    let branch = "mana".to_string() + work_dir.path().file_name().unwrap().to_str().unwrap();
-    // let work_tree = repo.worktree(work_dir.path().file_name().unwrap().to_str().unwrap(), &work_subdir, Some(&worktree_opt))
-    // let work_tree = repo.worktree("", &work_subdir, Some(&worktree_opt))
-    let work_tree = repo.worktree(&branch, &work_subdir, None)
-        .context("failure initializing git worktree")?;
-    println!("WORK: {:?}", &work_subdir);
-    std::mem::forget(work_dir);
+    // open git repo and check if it's clean
+    let repo = Repository::open(&script.shadow_dir).context("failure opening 'shadow_dir'")?;
+    // check if repo is clean
+    {
+        if repo.state() != git2::RepositoryState::Clean {
+            bail!(
+                "git 'shadow_dir' repository has pending unfinished operation {:?}",
+                repo.state()
+            );
+        }
+        let mut stat_opt = git2::StatusOptions::new();
+        stat_opt.include_untracked(true);
+        let stat = repo.statuses(Some(&mut stat_opt))?;
+        if !stat.is_empty() {
+            bail!("git 'shadow_dir' repository is not clean (see: git status)");
+        }
+    }
 
     // TODO: make a list of paths in 'tree' and in git
     // TODO: run 'gather' on appropriate handlers for all listed paths, fetching files into the git workspace
