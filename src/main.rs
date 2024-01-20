@@ -3,7 +3,7 @@ use git2::Repository;
 // mlua::prelude::* except ErrorContext; TODO: can we do simpler?
 use mlua::{
     FromLua, FromLuaMulti, IntoLua, IntoLuaMulti, Lua, MultiValue as LuaMultiValue,
-    Value as LuaValue,
+    Table as LuaTable, Value as LuaValue,
 };
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::PathBuf;
@@ -36,43 +36,11 @@ fn main() -> Result<()> {
         }
     }
 
-    // TODO: initialize handlers
+    // Initialize handlers
     let lua = Lua::new();
     let lua_handlers = lua.create_table().unwrap();
     for (root, cmd) in script.handlers {
-        if cmd.len() < 2 {
-            bail!("Handler for {root:?} has too few elements - expected 2+, got: {cmd:?}");
-        }
-        if cmd[0] != "lua53" {
-            bail!("FIXME: currently handler[0] must be 'lua53'");
-        }
-        let source = std::fs::read_to_string(&cmd[1])
-            .with_context(|| format!("reading Lua script for handler for {root:?}"))?;
-        // TODO: eval and load returned module - must refactor scripts first
-        let mut v = lua.load(source).set_name(&cmd[1]).eval::<LuaValue>()?;
-        let LuaValue::Table(ref t) = v else {
-            bail!("Handler for {root:?} expected to return Lua table, but got: {v:?}");
-        };
-        if let Ok(init) = t.get::<&str, LuaValue>("init") {
-            println!("INIT for {root:?} = {init:?}");
-            if let LuaValue::Function(ref f) = init {
-                let args = cmd[2..]
-                    .iter()
-                    .map(|v| v.clone().into_lua(&lua).unwrap())
-                    .collect::<LuaMultiValue>();
-                let ret = f.call(args).with_context(|| {
-                    format!("calling 'init({:?})' on handler for {root:?}", &cmd[2..])
-                })?;
-                let LuaValue::Table(_) = ret else {
-                    bail!("calling 'init(...)' on handler for {root:?} expected to return Lua table, got; {ret:?}");
-                };
-                v = ret;
-            }
-        }
-        lua_handlers.set(&*root, v).unwrap();
-
-        // let mut args = cmd.into_iter();
-        // let Some(arg) = args.next
+        init_handler(&lua, &lua_handlers, root, cmd)?;
     }
 
     // Make a list of paths in 'tree' and in git
@@ -208,4 +176,38 @@ fn parse_input_toml(input: &str) -> Result<Script> {
         handlers,
         paths,
     })
+}
+
+fn init_handler(lua: &Lua, dst: &LuaTable, root: String, cmd: Vec<String>) -> Result<()> {
+    if cmd.len() < 2 {
+        bail!("Handler for {root:?} has too few elements - expected 2+, got: {cmd:?}");
+    }
+    if cmd[0] != "lua53" {
+        bail!("FIXME: currently handler[0] must be 'lua53'");
+    }
+    let source = std::fs::read_to_string(&cmd[1])
+        .with_context(|| format!("reading Lua script for handler for {root:?}"))?;
+    // TODO: eval and load returned module - must refactor scripts first
+    let mut v = lua.load(source).set_name(&cmd[1]).eval::<LuaValue>()?;
+    let LuaValue::Table(ref t) = v else {
+        bail!("Handler for {root:?} expected to return Lua table, but got: {v:?}");
+    };
+    if let Ok(init) = t.get::<&str, LuaValue>("init") {
+        println!("INIT for {root:?} = {init:?}");
+        if let LuaValue::Function(ref f) = init {
+            let args = cmd[2..]
+                .iter()
+                .map(|v| v.clone().into_lua(&lua).unwrap())
+                .collect::<LuaMultiValue>();
+            let ret = f.call(args).with_context(|| {
+                format!("calling 'init({:?})' on handler for {root:?}", &cmd[2..])
+            })?;
+            let LuaValue::Table(_) = ret else {
+                bail!("calling 'init(...)' on handler for {root:?} expected to return Lua table, got; {ret:?}");
+            };
+            v = ret;
+        }
+    }
+    dst.set(root.as_str(), v).unwrap();
+    Ok(())
 }
