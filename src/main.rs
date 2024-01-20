@@ -27,10 +27,7 @@ fn main() -> Result<()> {
                 repo.state()
             );
         }
-        let mut stat_opt = git2::StatusOptions::new();
-        stat_opt.include_untracked(true);
-        let stat = repo.statuses(Some(&mut stat_opt))?;
-        if !stat.is_empty() {
+        if !check_git_statuses_empty(&repo)? {
             bail!("git 'shadow_dir' repository is not clean (see: git status)");
         }
     }
@@ -75,12 +72,12 @@ fn main() -> Result<()> {
         println!(" - {k:?}");
     }
 
-    // TODO: run 'gather' on appropriate handlers for all listed paths, fetching files into the git workspace
+    // Run 'query' on appropriate handlers for all listed paths, fetching files into the git workspace
     for path in &paths {
         let (prefix, subpath) = split_handler_path(&path);
         let found: bool = call_handler_method(&lua_handlers, prefix, "exists", subpath)
             .with_context(|| format!("calling handlers[{prefix:?}]:exists({subpath:?})"))?;
-        println!(" . {prefix:?} {subpath:?} {found:?}");
+        // println!(" . {prefix:?} {subpath:?} {found:?}");
         let shadow_path = PathBuf::from(&script.shadow_dir).join(PathBuf::from_slash(path));
         if !found {
             std::fs::remove_file(shadow_path);
@@ -90,7 +87,13 @@ fn main() -> Result<()> {
             .with_context(|| format!("calling handlers[{prefix:?}]:query({subpath:?})"))?;
     }
 
-    // TODO: two-way compare: current git <-> results of handlers.gather (use git-workspace)
+    // Two-way compare: current git <-> results of handlers.query
+    if !check_git_statuses_empty(&repo)? {
+        bail!(
+            "real disk contents differ from expected prerequisites; check git diff in shadow repo: {:?}", script.shadow_dir,
+        );
+    }
+
     // TODO: 3-way compare: curr git <-> handlers.query results <-> parsed input
     // TODO: https://github.com/akavel/drafts/blob/main/20231122-001-mana2.md
     Ok(())
@@ -185,6 +188,13 @@ fn parse_input_toml(input: &str) -> Result<Script> {
         handlers,
         paths,
     })
+}
+
+fn check_git_statuses_empty(repo: &Repository) -> Result<bool> {
+    let mut stat_opt = git2::StatusOptions::new();
+    stat_opt.include_untracked(true);
+    let stat = repo.statuses(Some(&mut stat_opt))?;
+    Ok(stat.is_empty())
 }
 
 fn init_handler(lua: &Lua, dst: &LuaTable, root: String, cmd: Vec<String>) -> Result<()> {
