@@ -1,6 +1,7 @@
 use anyhow::{bail, Context, Result};
 use git2::Repository;
-use mlua::prelude::*;
+// mlua::prelude::* except ErrorContext; TODO: can we do simpler?
+use mlua::{Lua, Value as LuaValue, MultiValue as LuaMultiValue, IntoLua, FromLua, IntoLuaMulti, FromLuaMulti};
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::PathBuf;
 // Trait for extending std::path::PathBuf
@@ -52,9 +53,13 @@ fn main() -> Result<()> {
         if let Ok(init) = t.get::<&str, LuaValue>("init") {
             println!("INIT for {root:?} = {init:?}");
             if let LuaValue::Function(ref f) = init {
-                let args = cmd[2..].iter().map(|v| v.into::<LuaValue>()).collect::<LuaMultiValue>();
-                let ret = f.call(args)
-                    .context(|| format!("calling 'init({:?})' on handler for {root:?}", cmd[2..]))?;
+                let args = cmd[2..]
+                    .iter()
+                    .map(|v| v.clone().into_lua(&lua).unwrap())
+                    .collect::<LuaMultiValue>();
+                let ret = f.call(args).with_context(|| {
+                    format!("calling 'init({:?})' on handler for {root:?}", &cmd[2..])
+                })?;
                 let LuaValue::Table(ref tab) = ret else {
                     bail!("calling 'init(...)' on handler for {root:?} expected to return Lua table, got; {ret:?}");
                 };
