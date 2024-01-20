@@ -1,7 +1,10 @@
 use anyhow::{bail, Context, Result};
 use git2::Repository;
 // mlua::prelude::* except ErrorContext; TODO: can we do simpler?
-use mlua::{Lua, Value as LuaValue, MultiValue as LuaMultiValue, IntoLua, FromLua, IntoLuaMulti, FromLuaMulti};
+use mlua::{
+    FromLua, FromLuaMulti, IntoLua, IntoLuaMulti, Lua, MultiValue as LuaMultiValue,
+    Value as LuaValue,
+};
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::PathBuf;
 // Trait for extending std::path::PathBuf
@@ -46,7 +49,7 @@ fn main() -> Result<()> {
         let source = std::fs::read_to_string(&cmd[1])
             .with_context(|| format!("reading Lua script for handler for {root:?}"))?;
         // TODO: eval and load returned module - must refactor scripts first
-        let v = lua.load(source).set_name(&cmd[1]).eval::<LuaValue>()?;
+        let mut v = lua.load(source).set_name(&cmd[1]).eval::<LuaValue>()?;
         let LuaValue::Table(ref t) = v else {
             bail!("Handler for {root:?} expected to return Lua table, but got: {v:?}");
         };
@@ -60,9 +63,10 @@ fn main() -> Result<()> {
                 let ret = f.call(args).with_context(|| {
                     format!("calling 'init({:?})' on handler for {root:?}", &cmd[2..])
                 })?;
-                let LuaValue::Table(ref tab) = ret else {
+                let LuaValue::Table(_) = ret else {
                     bail!("calling 'init(...)' on handler for {root:?} expected to return Lua table, got; {ret:?}");
                 };
+                v = ret;
             }
         }
         lua_handlers.set(&*root, v).unwrap();
