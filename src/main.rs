@@ -5,9 +5,9 @@ use mlua::prelude::{
     FromLua, FromLuaMulti, IntoLua, IntoLuaMulti, Lua, LuaMultiValue, LuaResult, LuaTable, LuaValue,
 };
 use std::collections::{BTreeMap, BTreeSet};
-// use std::path::PathBuf;
+use std::path::PathBuf;
 // Trait for extending std::path::PathBuf
-// use path_slash::PathBufExt as _;
+use path_slash::PathBufExt as _;
 use unicase::UniCase;
 
 fn main() -> Result<()> {
@@ -81,10 +81,13 @@ fn main() -> Result<()> {
         let found: bool = call_handler_method(&lua_handlers, prefix, "exists", subpath)
             .with_context(|| format!("calling handlers[{prefix:?}]:exists({subpath:?})"))?;
         println!(" . {prefix:?} {subpath:?} {found:?}");
-        // if !found {
-        //     std::fs::remove_file(shadow_dir.join(PathBuf::from_slash(subpath)));
-        //     continue;
-        // }
+        let shadow_path = PathBuf::from(&script.shadow_dir).join(PathBuf::from_slash(path));
+        if !found {
+            std::fs::remove_file(shadow_path);
+            continue;
+        }
+        call_handler_method(&lua_handlers, prefix, "query", (subpath, shadow_path.to_str().unwrap()))
+            .with_context(|| format!("calling handlers[{prefix:?}]:query({subpath:?})"))?;
     }
 
     // TODO: two-way compare: current git <-> results of handlers.gather (use git-workspace)
@@ -227,11 +230,11 @@ fn split_handler_path(path: &str) -> (&str, &str) {
     return (start, end);
 }
 
-fn call_handler_method<'a, V: mlua::FromLua<'a>>(
+fn call_handler_method<'a, V: mlua::FromLuaMulti<'a>>(
     handlers: &LuaTable<'a>,
     prefix: &str,
     method: &str,
-    path_arg: &str,
+    args: impl mlua::IntoLuaMulti<'a>,
 ) -> Result<V> {
     let handler: LuaValue = handlers.get(prefix).unwrap();
     let LuaValue::Table(ref t) = handler else {
@@ -241,6 +244,6 @@ fn call_handler_method<'a, V: mlua::FromLua<'a>>(
     let LuaValue::Function(ref f) = method_val else {
         bail!("expected '{method}' in Lua handler for {prefix:?} to be a function, but got: {method_val:?}");
     };
-    let res: V = f.call(path_arg)?;
+    let res: V = f.call(args)?;
     Ok(res)
 }
