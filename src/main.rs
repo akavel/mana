@@ -78,18 +78,13 @@ fn main() -> Result<()> {
     // TODO: run 'gather' on appropriate handlers for all listed paths, fetching files into the git workspace
     for path in &paths {
         let (prefix, subpath) = split_handler_path(&path);
-        let handler: LuaValue = lua_handlers.get(prefix).unwrap();
-        let LuaValue::Table(ref t) = handler else {
-            bail!("expected Lua handler for {prefix:?} to be a table, but got: {handler:?}");
-        };
-        let exists: LuaValue = t.get("exists").unwrap();
-        let LuaValue::Function(ref f) = exists else {
-            bail!("expected 'exists' in Lua handler for {prefix:?} to be a function, but got: {exists:?}");
-        };
-        let found: bool = f
-            .call(subpath)
+        let found: bool = call_handler_method(&lua_handlers, prefix, "exists", subpath)
             .with_context(|| format!("calling handlers[{prefix:?}]:exists({subpath:?})"))?;
         println!(" . {prefix:?} {subpath:?} {found:?}");
+        // if !found {
+        //     std::fs::remove_file(shadow_dir.join(PathBuf::from_slash(subpath)));
+        //     continue;
+        // }
     }
 
     // TODO: two-way compare: current git <-> results of handlers.gather (use git-workspace)
@@ -230,4 +225,22 @@ fn split_handler_path(path: &str) -> (&str, &str) {
     let (start, rest) = path.split_at(idx);
     let (_slash, end) = rest.split_at(1);
     return (start, end);
+}
+
+fn call_handler_method<'a, V: mlua::FromLua<'a>>(
+    handlers: &LuaTable<'a>,
+    prefix: &str,
+    method: &str,
+    path_arg: &str,
+) -> Result<V> {
+    let handler: LuaValue = handlers.get(prefix).unwrap();
+    let LuaValue::Table(ref t) = handler else {
+        bail!("expected Lua handler for {prefix:?} to be a table, but got: {handler:?}");
+    };
+    let method_val: LuaValue = t.get(method).unwrap();
+    let LuaValue::Function(ref f) = method_val else {
+        bail!("expected '{method}' in Lua handler for {prefix:?} to be a function, but got: {method_val:?}");
+    };
+    let res: V = f.call(path_arg)?;
+    Ok(res)
 }
