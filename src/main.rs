@@ -1,9 +1,8 @@
 use anyhow::{bail, Context, Result};
 use git2::Repository;
 // mlua::prelude::* except ErrorContext; TODO: can we do simpler?
-use mlua::{
-    FromLua, FromLuaMulti, IntoLua, IntoLuaMulti, Lua, MultiValue as LuaMultiValue,
-    Table as LuaTable, Value as LuaValue,
+use mlua::prelude::{
+    FromLua, FromLuaMulti, IntoLua, IntoLuaMulti, Lua, LuaMultiValue, LuaResult, LuaTable, LuaValue,
 };
 use std::collections::{BTreeMap, BTreeSet};
 // use std::path::PathBuf;
@@ -77,8 +76,21 @@ fn main() -> Result<()> {
     }
 
     // TODO: run 'gather' on appropriate handlers for all listed paths, fetching files into the git workspace
-    // for path in &paths {
-    // }
+    for path in &paths {
+        let (prefix, subpath) = split_handler_path(&path);
+        let handler: LuaValue = lua_handlers.get(prefix).unwrap();
+        let LuaValue::Table(ref t) = handler else {
+            bail!("expected Lua handler for {prefix:?} to be a table, but got: {handler:?}");
+        };
+        let exists: LuaValue = t.get("exists").unwrap();
+        let LuaValue::Function(ref f) = exists else {
+            bail!("expected 'exists' in Lua handler for {prefix:?} to be a function, but got: {exists:?}");
+        };
+        let found: bool = f
+            .call(subpath)
+            .with_context(|| format!("calling handlers[{prefix:?}]:exists({subpath:?})"))?;
+        println!(" . {prefix:?} {subpath:?} {found:?}");
+    }
 
     // TODO: two-way compare: current git <-> results of handlers.gather (use git-workspace)
     // TODO: 3-way compare: curr git <-> handlers.query results <-> parsed input
@@ -209,4 +221,13 @@ fn init_handler(lua: &Lua, dst: &LuaTable, root: String, cmd: Vec<String>) -> Re
     }
     dst.set(root.as_str(), v).unwrap();
     Ok(())
+}
+
+fn split_handler_path(path: &str) -> (&str, &str) {
+    let Some(idx) = path.find('/') else {
+        panic!("slash not found in path: {path:?}");
+    };
+    let (start, rest) = path.split_at(idx);
+    let (_slash, end) = rest.split_at(1);
+    return (start, end);
 }
