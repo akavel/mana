@@ -6,9 +6,9 @@ use mlua::{
     Table as LuaTable, Value as LuaValue,
 };
 use std::collections::{BTreeMap, BTreeSet};
-use std::path::PathBuf;
+// use std::path::PathBuf;
 // Trait for extending std::path::PathBuf
-use path_slash::PathBufExt as _;
+// use path_slash::PathBufExt as _;
 use unicase::UniCase;
 
 fn main() -> Result<()> {
@@ -48,16 +48,14 @@ fn main() -> Result<()> {
     let head_tree = head.peel_to_tree()?;
     let mut paths = PathSet::new();
     // TODO: unicode normaliz.: https://stackoverflow.com/q/47813162/#comment82595250_47813878
-    let mut case_insensitive_slash_paths =
-        std::collections::HashMap::<UniCase<String>, String>::new();
+    let mut case_insensitive_paths = std::collections::HashMap::<UniCase<String>, String>::new();
     head_tree.walk(git2::TreeWalkMode::PreOrder, |root, entry| {
         if entry.kind() == Some(git2::ObjectType::Blob) {
             let name = entry.name().unwrap();
             let slash_path = root.to_string() + name;
             // TODO: also check if entry already existed here
-            case_insensitive_slash_paths.insert(slash_path.clone().into(), slash_path);
-            let parent = PathBuf::from_slash(root);
-            paths.insert(parent.join(name));
+            case_insensitive_paths.insert(slash_path.clone().into(), slash_path.clone());
+            paths.insert(slash_path);
         }
         git2::TreeWalkResult::Ok
     })?;
@@ -65,14 +63,13 @@ fn main() -> Result<()> {
     //     println!(" - {k:?}");
     // }
     for path in script.paths.keys() {
-        let slash_path = path.to_slash().unwrap();
-        let unicase = slash_path.clone().into();
-        if let Some(found) = case_insensitive_slash_paths.get(&unicase) {
-            if found.as_str() != slash_path {
-                bail!("Found casing difference between git path {found:?} and input path {slash_path:?}");
+        let unicase = path.clone().into();
+        if let Some(found) = case_insensitive_paths.get(&unicase) {
+            if found.as_str() != path {
+                bail!("Found casing difference between git path {found:?} and input path {path:?}");
             }
         }
-        // TODO: case_insensitive_slash_paths.insert(slash_path, slash_path);
+        // TODO: case_insensitive_paths.insert(path, path);
         paths.insert(path.clone());
     }
     for k in &paths {
@@ -80,6 +77,8 @@ fn main() -> Result<()> {
     }
 
     // TODO: run 'gather' on appropriate handlers for all listed paths, fetching files into the git workspace
+    // for path in &paths {
+    // }
 
     // TODO: two-way compare: current git <-> results of handlers.gather (use git-workspace)
     // TODO: 3-way compare: curr git <-> handlers.query results <-> parsed input
@@ -87,15 +86,15 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-type PathMap = BTreeMap<PathBuf, String>;
-type PathSet = BTreeSet<PathBuf>;
+type PathContentMap = BTreeMap<String, String>;
+type PathSet = BTreeSet<String>;
 type Handlers = BTreeMap<String, Vec<String>>;
 
 #[derive(Debug)]
 struct Script {
     pub shadow_dir: String,
     pub handlers: Handlers,
-    pub paths: PathMap,
+    pub paths: PathContentMap,
 }
 
 // Parse input - just parse TOML for now.
@@ -145,20 +144,20 @@ fn parse_input_toml(input: &str) -> Result<Script> {
     println!("HANDL: {handlers:?}");
 
     // Convert tree to paths map
-    let mut paths = PathMap::new();
-    let mut todo = vec![(PathBuf::new(), raw_tree)];
+    let mut paths = PathContentMap::new();
+    let mut todo = vec![(String::new(), raw_tree)];
     loop {
         let Some((parent, subtree)) = todo.pop() else {
             break;
         };
         for (key, value) in subtree {
-            let path = parent.join(key);
+            let path = parent.clone() + &key;
             match value {
                 toml::Value::String(s) => {
                     paths.insert(path, s);
                 }
                 toml::Value::Table(t) => {
-                    todo.push((path, t));
+                    todo.push((path + "/", t));
                 }
                 _ => {
                     bail!("Unexpected type of value at {path:?} in tree: {value}");
