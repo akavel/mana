@@ -11,6 +11,11 @@ use path_slash::PathBufExt as _;
 use unicase::UniCase;
 
 fn main() -> Result<()> {
+    // TODO: 3 commands:
+    // TODO: query: real world -> git; then compare/diff by hand
+    // TODO: draft: Nickel -> git; then compare/diff by hand
+    // TODO: apply: git -> real world, + git add each successful
+
     println!("Hello, world!");
     // Read and parse input - just parse TOML for now.
     // TODO: would prefer to somehow do it in streamed way, maybe
