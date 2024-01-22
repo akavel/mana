@@ -121,8 +121,13 @@ fn query() -> Result<()> {
             std::fs::remove_file(shadow_path);
             continue;
         }
-        call_handler_method(&lua_handlers, prefix, "query", (subpath, shadow_path.to_str().unwrap()))
-            .with_context(|| format!("calling handlers[{prefix:?}]:query({subpath:?})"))?;
+        call_handler_method(
+            &lua_handlers,
+            prefix,
+            "query",
+            (subpath, shadow_path.to_str().unwrap()),
+        )
+        .with_context(|| format!("calling handlers[{prefix:?}]:query({subpath:?})"))?;
     }
 
     // Two-way compare: current git <-> results of handlers.query
