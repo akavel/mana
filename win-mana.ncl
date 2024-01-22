@@ -58,12 +58,14 @@ let module = {
 
   gitconfig = m%"
     [user]
-      email = czapkofan@gmail.com
-      name = Mateusz Czapliński
+    	email = czapkofan@gmail.com
+    	name = Mateusz Czapliński
     [alias]
-      kdiff3 = difftool --tool=kdiff3 --dir-diff
+    	kdiff3 = difftool --tool=kdiff3 --dir-diff
     [merge]
-      conflictstyle = diff3
+    	conflictstyle = diff3
+    [core]
+    	autocrlf = input
     "%,
 
   oneliners_to_bat = fun record => record

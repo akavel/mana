@@ -105,6 +105,10 @@ if exists("&wildignorecase")
   set wildignorecase
 endif
 
+" ignore some files in :e tab-completion
+" https://stackoverflow.com/questions/34658219/how-to-make-vim-ignore-file-extensions-when-opening-files-through-the-command-li
+set wildignore=*.exe
+
 " Show tabs and trailing whitespace visually
 set list
 set listchars=
@@ -297,3 +301,4 @@ if !exists(":DiffOrig")
   command DiffOrig vert new | set bt=nofile | r ++edit # | 0d_ | diffthis
       \ | wincmd p | diffthis
 endif
+
