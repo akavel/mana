@@ -65,6 +65,8 @@ let module = {
     [merge]
     	conflictstyle = diff3
 
+    [init]
+    	defaultBranch = main
     [core]
     	autocrlf = input
 
