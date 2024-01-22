@@ -7,6 +7,7 @@ use git2::Repository;
 use mlua::prelude::{
     FromLua, FromLuaMulti, IntoLua, IntoLuaMulti, Lua, LuaMultiValue, LuaResult, LuaTable, LuaValue,
 };
+use nickel_lang_core as nickel;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 // Trait for extending std::path::PathBuf
@@ -16,6 +17,11 @@ use unicase::UniCase;
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
 struct Cli {
+    /// Path to a file containing a Nickel script to evaluate. If empty, a TOML file is loaded from
+    /// standard input instead.
+    #[arg(short, long)]
+    raw: Optional<String>,
+
     #[command(subcommand)]
     command: Command,
 }
