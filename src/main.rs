@@ -1,4 +1,6 @@
 use anyhow::{bail, Context, Result};
+use cap_std::ambient_authority;
+use cap_std::fs::Dir;
 use clap::{Parser, Subcommand};
 use git2::Repository;
 // mlua::prelude::* except ErrorContext; TODO: can we do simpler?
@@ -6,7 +8,7 @@ use mlua::prelude::{
     FromLua, FromLuaMulti, IntoLua, IntoLuaMulti, Lua, LuaMultiValue, LuaResult, LuaTable, LuaValue,
 };
 use std::collections::{BTreeMap, BTreeSet};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 // Trait for extending std::path::PathBuf
 use path_slash::PathBufExt as _;
 use unicase::UniCase;
@@ -23,7 +25,8 @@ enum Command {
     /// Check actual state of the machine and serialize it into git
     /// working directory at 'shadow_dir'.
     Query,
-    /// Serialize input into git working directory at 'shadow_dir'.
+    /// Serialize desired state (as read from input) into git working
+    /// directory at 'shadow_dir'.
     Draft,
     /// Apply the contents of the git working directory to the state
     /// of the machine. For each successfully applied file, perform
@@ -42,7 +45,7 @@ fn main() -> Result<()> {
     let cli = Cli::parse();
     match &cli.command {
         Command::Query => query(),
-        Command::Draft => bail!("TODO"),
+        Command::Draft => draft(),
         Command::Apply => bail!("TODO"),
     }
 
@@ -139,6 +142,35 @@ fn query() -> Result<()> {
 
     // TODO: 3-way compare: curr git <-> handlers.query results <-> parsed input
     // TODO: https://github.com/akavel/drafts/blob/main/20231122-001-mana2.md
+    Ok(())
+}
+
+fn draft() -> Result<()> {
+    // Read and parse input - just parse TOML for now.
+    // TODO: would prefer to somehow do it in streamed way, maybe
+    let input = std::io::read_to_string(std::io::stdin()).context("failure reading stdin")?;
+    let script = parse_input_toml(&input)?;
+
+    // TODO[LATER]: maybe check if git status clean at script.shadow_dir
+
+    // TODO[LATER]: validate that paths were not already added (and do it case insensitively)
+    // TODO[LATER]: allow case-sensitive check with an explicit CLI flag
+    let dir = Dir::open_ambient_dir(script.shadow_dir, ambient_authority())?;
+    for (path, contents) in script.paths {
+        println!(" - {path}");
+        // TODO[LATER]: try if things will "just work" on Windows without explicit from_slash conversions
+        let os_path = PathBuf::from_slash(&path);
+        if let Some(parent) = os_path.parent() {
+            // can we simplify this somehow?
+            if parent != Path::new("") {
+                dir.create_dir_all(parent).context("in shadow_dir")?;
+            }
+        }
+        dir.write(path, contents).context("in shadow_dir")?;
+    }
+
+    // TODO[LATER]: add support for binary files, maybe somehow
+
     Ok(())
 }
 
