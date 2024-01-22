@@ -190,14 +190,51 @@ fn apply() -> Result<()> {
         );
     }
 
+    // Initialize handlers
+    let lua = Lua::new();
+    let lua_handlers = lua.create_table().unwrap();
+    for (root, cmd) in script.handlers {
+        init_handler(&lua, &lua_handlers, root, cmd)?;
+    }
+
     // iterate modified files in repo, incl. untracked
     // TODO: also iterate unmodified?
+    let mut git_index = repo.index()?;
     let mut stat_opt = git2::StatusOptions::new();
     stat_opt.include_untracked(true);
     stat_opt.recurse_untracked_dirs(true);
     // stat_opt.include_unmodified(true);
     for stat in &repo.statuses(Some(&mut stat_opt))? {
         println!(" * {:?}", stat.path());
+        let Some(path) = stat.path() else {
+            bail!(
+                "Path from 'git status' cannot be parsed as utf8: {:?}",
+                stat.path()
+            );
+        };
+        let os_rel_path = PathBuf::from_slash(path);
+        let shadow_path = PathBuf::from(&script.shadow_dir).join(&os_rel_path);
+        let (prefix, subpath) = split_handler_path(&path);
+        call_handler_method(
+            &lua_handlers,
+            prefix,
+            "apply",
+            (subpath, shadow_path.to_str().unwrap()),
+        )
+        .with_context(|| format!("calling handlers[{prefix:?}]:apply({subpath:?})"))?;
+        use git2::Status;
+        match stat.status() {
+            Status::WT_NEW | Status::WT_MODIFIED => {
+                git_index.add_path(&os_rel_path)?;
+            }
+            Status::WT_DELETED => {
+                git_index.remove_path(&os_rel_path)?;
+            }
+            s @ _ => {
+                bail!("unsupported git status {s:?} for path {path:?} in 'shadow_dir'");
+            }
+        }
+        git_index.write()?;
     }
 
     Ok(())
