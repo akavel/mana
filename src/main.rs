@@ -1,4 +1,5 @@
 use anyhow::{bail, Context, Result};
+use clap::{Parser, Subcommand};
 use git2::Repository;
 // mlua::prelude::* except ErrorContext; TODO: can we do simpler?
 use mlua::prelude::{
@@ -10,6 +11,26 @@ use std::path::PathBuf;
 use path_slash::PathBufExt as _;
 use unicase::UniCase;
 
+#[derive(Parser)]
+#[command(author, version, about, long_about = None)]
+struct Cli {
+    #[command(subcommand)]
+    command: Command,
+}
+
+#[derive(Subcommand)]
+enum Command {
+    /// Check actual state of the machine and serialize it into git
+    /// working directory at 'shadow_dir'.
+    Query,
+    /// Serialize input into git working directory at 'shadow_dir'.
+    Draft,
+    /// Apply the contents of the git working directory to the state
+    /// of the machine. For each successfully applied file, perform
+    /// `git add` on it.
+    Apply,
+}
+
 fn main() -> Result<()> {
     // TODO: 3 commands:
     // TODO: query: real world -> git; then compare/diff by hand
@@ -17,6 +38,18 @@ fn main() -> Result<()> {
     // TODO: apply: git -> real world, + git add each successful
 
     println!("Hello, world!");
+
+    let cli = Cli::parse();
+    match &cli.command {
+        Command::Query => query(),
+        Command::Draft => bail!("TODO"),
+        Command::Apply => bail!("TODO"),
+    }
+
+    // TODO[LATER]: licensing information in --license flag
+}
+
+fn query() -> Result<()> {
     // Read and parse input - just parse TOML for now.
     // TODO: would prefer to somehow do it in streamed way, maybe
     let input = std::io::read_to_string(std::io::stdin()).context("failure reading stdin")?;
