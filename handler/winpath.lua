@@ -28,7 +28,7 @@ function winpath.exists(path)
 end
 
 function winpath.query(path, shadowpath)
-  winpath.touch(shadowpath)
+  winpath.mkempty(shadowpath)
 end
 
 function winpath.apply(path, shadowpath)
@@ -69,9 +69,8 @@ function winpath.iter()
   return text:gmatch '[^;]*'
 end
 
-function winpath.touch(ospath)
-  local fh = assert(io.open(ospath, 'a'))
-  fh:close()
+function winpath.mkempty(ospath)
+  assert(io.open(ospath, 'w')):close()
 end
 
 if arg then
