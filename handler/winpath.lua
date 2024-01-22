@@ -37,17 +37,13 @@ function winpath.apply(path, shadowpath)
   local newpath = {}
   local found = false
   for p in winpath.iter() do
-    if simplify(p) == simplify(ospath) then
-      if adding then
-        return  -- already there, no need to add
-      else
-        -- don't put in newpath
-      end
-    else
+    if simplify(p) ~= simplify(ospath) then
       newpath[#newpath+1] = p
       if p:find '"' or p:find "'" then
         error(("old PATH contains quote, currently cannot be handled properly: %q"):format(p))
       end
+    elseif adding then
+      return  -- already there, no need to add
     end
   end
   if adding then
