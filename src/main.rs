@@ -46,7 +46,7 @@ fn main() -> Result<()> {
     match &cli.command {
         Command::Query => query(),
         Command::Draft => draft(),
-        Command::Apply => bail!("TODO"),
+        Command::Apply => apply(),
     }
 
     // TODO[LATER]: licensing information in --license flag
@@ -171,6 +171,34 @@ fn draft() -> Result<()> {
     }
 
     // TODO[LATER]: add support for binary files, maybe somehow
+
+    Ok(())
+}
+
+fn apply() -> Result<()> {
+    // Read and parse input - just parse TOML for now.
+    // TODO: would prefer to somehow do it in streamed way, maybe
+    let input = std::io::read_to_string(std::io::stdin()).context("failure reading stdin")?;
+    let script = parse_input_toml(&input)?;
+
+    // open repo and verify it has no pending operation
+    let repo = Repository::open(&script.shadow_dir).context("failure opening 'shadow_dir'")?;
+    if repo.state() != git2::RepositoryState::Clean {
+        bail!(
+            "git 'shadow_dir' repository has pending unfinished operation {:?}",
+            repo.state()
+        );
+    }
+
+    // iterate modified files in repo, incl. untracked
+    // TODO: also iterate unmodified?
+    let mut stat_opt = git2::StatusOptions::new();
+    stat_opt.include_untracked(true);
+    stat_opt.recurse_untracked_dirs(true);
+    // stat_opt.include_unmodified(true);
+    for stat in &repo.statuses(Some(&mut stat_opt))? {
+        println!(" * {:?}", stat.path());
+    }
 
     Ok(())
 }
