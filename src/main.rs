@@ -114,7 +114,11 @@ fn query() -> Result<()> {
     }
 
     // Run 'query' on appropriate handlers for all listed paths, fetching files into the git workspace
+    let dir = Dir::open_ambient_dir(&script.shadow_dir, ambient_authority())?;
     for path in &paths {
+        if let Some(parent) = parent_dir(&PathBuf::from_slash(&path)) {
+            dir.create_dir_all(parent).context("in shadow_dir")?;
+        }
         let (prefix, subpath) = split_handler_path(&path);
         let found: bool = call_handler_method(&lua_handlers, prefix, "exists", subpath)
             .with_context(|| format!("calling handlers[{prefix:?}]:exists({subpath:?})"))?;
@@ -160,11 +164,8 @@ fn draft() -> Result<()> {
         println!(" - {path}");
         // TODO[LATER]: try if things will "just work" on Windows without explicit from_slash conversions
         let os_path = PathBuf::from_slash(&path);
-        if let Some(parent) = os_path.parent() {
-            // can we simplify this somehow?
-            if parent != Path::new("") {
-                dir.create_dir_all(parent).context("in shadow_dir")?;
-            }
+        if let Some(parent) = parent_dir(&os_path) {
+            dir.create_dir_all(parent).context("in shadow_dir")?;
         }
         dir.write(path, contents).context("in shadow_dir")?;
     }
@@ -304,6 +305,11 @@ fn init_handler(lua: &Lua, dst: &LuaTable, root: String, cmd: Vec<String>) -> Re
     }
     dst.set(root.as_str(), v).unwrap();
     Ok(())
+}
+
+fn parent_dir(path: &Path) -> Option<&Path> {
+    // can we simplify this somehow?
+    path.parent().filter(|p| *p != Path::new(""))
 }
 
 fn split_handler_path(path: &str) -> (&str, &str) {
