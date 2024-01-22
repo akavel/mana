@@ -64,15 +64,17 @@ let module = {
     	kdiff3 = difftool --tool=kdiff3 --dir-diff
     [merge]
     	conflictstyle = diff3
+
     [core]
     	autocrlf = input
+
     "%,
 
   oneliners_to_bat = fun record => record
     |> std.record.to_array
     |> std.array.map (fun x => {
         field = "%{x.field}.bat",
-        value = "@%{x.value} %*",
+        value = "@%{x.value} %*\n",
       })
     |> std.record.from_array,
 
