@@ -251,15 +251,16 @@ fn parse_input(ncl: Option<PathBuf>) -> Result<Script> {
 
     let username = whoami::username();
     let hostname = whoami::hostname();
-    // FIXME: proper escaping to avoid injection (Bobby-Tables)
-    let field_path = format!("\"{username}@{hostname}\"");
-    // println!("FIELD: {field_path:?}");
+    let field_path_raw = format!("{username}@{hostname}");
 
-    use nickel_lang_core::error::report::ErrorFormat;
-    use nickel_lang_core::eval::cache::lazy::CBNCache;
-    use nickel_lang_core::program::Program as Prog;
-    let err = std::io::stderr();
-    let mut prog = Prog::<CBNCache>::new_from_file(&path, err)?;
+    use nickel_lang_core::{
+        error::report::ErrorFormat, eval::cache::lazy::CBNCache, identifier::LocIdent,
+        pretty::ident_quoted, program::Program as Prog,
+    };
+    let field_path = ident_quoted(&LocIdent::new(field_path_raw));
+    // println!("FIELD: {field_path:?}");
+    use std::io::stderr;
+    let mut prog = Prog::<CBNCache>::new_from_file(&path, stderr())?;
     let res_field = prog.parse_field_path(field_path.clone());
     let Ok(field) = res_field else {
         prog.report(res_field.unwrap_err(), ErrorFormat::Text);
