@@ -16,6 +16,11 @@ use unicase::UniCase;
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
 struct Cli {
+    /// Path to a file containing a Nickel script to evaluate. If empty, a TOML file is loaded from
+    /// standard input instead.
+    #[arg(short, long)]
+    ncl: Option<PathBuf>,
+
     #[command(subcommand)]
     command: Command,
 }
@@ -44,19 +49,16 @@ fn main() -> Result<()> {
 
     let cli = Cli::parse();
     match &cli.command {
-        Command::Query => query(),
-        Command::Draft => draft(),
-        Command::Apply => apply(),
+        Command::Query => query(cli.ncl),
+        Command::Draft => draft(cli.ncl),
+        Command::Apply => apply(cli.ncl),
     }
 
     // TODO[LATER]: licensing information in --license flag
 }
 
-fn query() -> Result<()> {
-    // Read and parse input - just parse TOML for now.
-    // TODO: would prefer to somehow do it in streamed way, maybe
-    let input = std::io::read_to_string(std::io::stdin()).context("failure reading stdin")?;
-    let script = parse_input_toml(&input)?;
+fn query(ncl: Option<PathBuf>) -> Result<()> {
+    let script = parse_input(ncl)?;
 
     // open git repo and check if it's clean
     let repo = Repository::open(&script.shadow_dir).context("failure opening 'shadow_dir'")?;
@@ -149,11 +151,8 @@ fn query() -> Result<()> {
     Ok(())
 }
 
-fn draft() -> Result<()> {
-    // Read and parse input - just parse TOML for now.
-    // TODO: would prefer to somehow do it in streamed way, maybe
-    let input = std::io::read_to_string(std::io::stdin()).context("failure reading stdin")?;
-    let script = parse_input_toml(&input)?;
+fn draft(ncl: Option<PathBuf>) -> Result<()> {
+    let script = parse_input(ncl)?;
 
     // TODO[LATER]: maybe check if git status clean at script.shadow_dir
 
@@ -175,11 +174,8 @@ fn draft() -> Result<()> {
     Ok(())
 }
 
-fn apply() -> Result<()> {
-    // Read and parse input - just parse TOML for now.
-    // TODO: would prefer to somehow do it in streamed way, maybe
-    let input = std::io::read_to_string(std::io::stdin()).context("failure reading stdin")?;
-    let script = parse_input_toml(&input)?;
+fn apply(ncl: Option<PathBuf>) -> Result<()> {
+    let script = parse_input(ncl)?;
 
     // open repo and verify it has no pending operation
     let repo = Repository::open(&script.shadow_dir).context("failure opening 'shadow_dir'")?;
@@ -238,6 +234,42 @@ fn apply() -> Result<()> {
     }
 
     Ok(())
+}
+
+fn parse_input(ncl: Option<PathBuf>) -> Result<Script> {
+    let Some(path) = ncl else {
+        // If no path to *.ncl file provided, read and parse TOML from
+        // stdin.
+        // TODO: would prefer to somehow do it in streamed way, maybe
+        let input = std::io::read_to_string(std::io::stdin()).context("failure reading stdin")?;
+        return parse_input_toml(&input);
+    };
+
+    let username = whoami::username();
+    let hostname = whoami::hostname();
+    // FIXME: proper escaping to avoid injection (Bobby-Tables)
+    let field_path = format!("\"{username}@{hostname}\"");
+    // println!("FIELD: {field_path:?}");
+
+    use nickel_lang_core::error::report::ErrorFormat;
+    use nickel_lang_core::eval::cache::lazy::CBNCache;
+    use nickel_lang_core::program::Program as Prog;
+    let err = std::io::stderr();
+    let mut prog = Prog::<CBNCache>::new_from_file(&path, err)?;
+    let res_field = prog.parse_field_path(field_path.clone());
+    let Ok(field) = res_field else {
+        prog.report(res_field.unwrap_err(), ErrorFormat::Text);
+        bail!("failed to parse {field_path:?} as Nickel path");
+    };
+    prog.field = field;
+    let res_term = prog.eval_full_for_export();
+    let Ok(term) = res_term else {
+        prog.report(res_term.unwrap_err(), ErrorFormat::Text);
+        bail!("script {path:?} failed");
+    };
+    // FIXME: shorten to: toml::Table::deserialize(term)
+    let toml = toml::to_string(&term).unwrap();
+    parse_input_toml(&toml)
 }
 
 type PathContentMap = BTreeMap<String, String>;
