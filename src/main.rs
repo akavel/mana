@@ -9,6 +9,7 @@ use mlua::prelude::{
 };
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
+use toml::macros::Deserialize;
 // Trait for extending std::path::PathBuf
 use path_slash::PathBufExt as _;
 use unicase::UniCase;
@@ -242,7 +243,10 @@ fn parse_input(ncl: Option<PathBuf>) -> Result<Script> {
         // stdin.
         // TODO: would prefer to somehow do it in streamed way, maybe
         let input = std::io::read_to_string(std::io::stdin()).context("failure reading stdin")?;
-        return parse_input_toml(&input);
+        let mut toml = input
+            .parse::<toml::Table>()
+            .context("failed to parse stdin as TOML")?;
+        return parse_input_toml(&mut toml);
     };
 
     let username = whoami::username();
@@ -267,9 +271,8 @@ fn parse_input(ncl: Option<PathBuf>) -> Result<Script> {
         prog.report(res_term.unwrap_err(), ErrorFormat::Text);
         bail!("script {path:?} failed");
     };
-    // FIXME: shorten to: toml::Table::deserialize(term)
-    let toml = toml::to_string(&term).unwrap();
-    parse_input_toml(&toml)
+    let mut toml = toml::Table::deserialize(term).context("loading Nickel output to TOML")?;
+    parse_input_toml(&mut toml)
 }
 
 type PathContentMap = BTreeMap<String, String>;
@@ -284,10 +287,7 @@ struct Script {
 }
 
 // Parse input - just parse TOML for now.
-fn parse_input_toml(input: &str) -> Result<Script> {
-    let mut toml = input
-        .parse::<toml::Table>()
-        .context("failed to parse stdin as TOML")?;
+fn parse_input_toml(toml: &mut toml::Table) -> Result<Script> {
     // println!("PARSED: {toml:?}");
 
     // Extract `shadow_dir` from toml
