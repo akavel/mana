@@ -23,4 +23,5 @@ tempfile = "3.9.0"
 thiserror = "1.0.56"
 toml = { version = "0.8.8", features = ["preserve_order"] }
 unicase = "2.7.0"
+whoami = { version = "1.4.1", default-features = false }
 

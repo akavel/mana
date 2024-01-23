@@ -8,6 +8,7 @@
 
 let module = {
   main = {
+    "Mateusz@desktop-ssng4gi" = raw,
     raw = {
       shadow_dir = m%"c:\prog\shadow"%,
       handlers = handlers',

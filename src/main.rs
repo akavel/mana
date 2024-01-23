@@ -58,10 +58,7 @@ fn main() -> Result<()> {
 }
 
 fn query(ncl: Option<PathBuf>) -> Result<()> {
-    // Read and parse input - just parse TOML for now.
-    // TODO: would prefer to somehow do it in streamed way, maybe
-    let input = std::io::read_to_string(std::io::stdin()).context("failure reading stdin")?;
-    let script = parse_input_toml(&input)?;
+    let script = parse_input(ncl)?;
 
     // open git repo and check if it's clean
     let repo = Repository::open(&script.shadow_dir).context("failure opening 'shadow_dir'")?;
@@ -155,10 +152,7 @@ fn query(ncl: Option<PathBuf>) -> Result<()> {
 }
 
 fn draft(ncl: Option<PathBuf>) -> Result<()> {
-    // Read and parse input - just parse TOML for now.
-    // TODO: would prefer to somehow do it in streamed way, maybe
-    let input = std::io::read_to_string(std::io::stdin()).context("failure reading stdin")?;
-    let script = parse_input_toml(&input)?;
+    let script = parse_input(ncl)?;
 
     // TODO[LATER]: maybe check if git status clean at script.shadow_dir
 
@@ -181,10 +175,7 @@ fn draft(ncl: Option<PathBuf>) -> Result<()> {
 }
 
 fn apply(ncl: Option<PathBuf>) -> Result<()> {
-    // Read and parse input - just parse TOML for now.
-    // TODO: would prefer to somehow do it in streamed way, maybe
-    let input = std::io::read_to_string(std::io::stdin()).context("failure reading stdin")?;
-    let script = parse_input_toml(&input)?;
+    let script = parse_input(ncl)?;
 
     // open repo and verify it has no pending operation
     let repo = Repository::open(&script.shadow_dir).context("failure opening 'shadow_dir'")?;
@@ -216,14 +207,28 @@ fn parse_input(ncl: Option<PathBuf>) -> Result<Script> {
         let input = std::io::read_to_string(std::io::stdin()).context("failure reading stdin")?;
         return parse_input_toml(&input);
     };
+
+    let username = whoami::username();
+    let hostname = whoami::hostname();
+    // FIXME: proper escaping to avoid injection (Bobby-Tables)
+    let field_path = format!("\"{username}@{hostname}\"");
+    // println!("FIELD: {field_path:?}");
+
+    use nickel_lang_core::error::report::ErrorFormat;
     use nickel_lang_core::eval::cache::lazy::CBNCache;
     use nickel_lang_core::program::Program as Prog;
-    let source = std::fs::File::open(&path)?;
     let err = std::io::stderr();
-    let mut prog = Prog::<CBNCache>::new_from_source(source, &path, err)?;
+    let mut prog = Prog::<CBNCache>::new_from_file(&path, err)?;
+    let res_field = prog.parse_field_path(field_path.clone());
+    let Ok(field) = res_field else {
+        prog.report(res_field.unwrap_err(), ErrorFormat::Text);
+        bail!("failed to parse {field_path:?} as Nickel path");
+    };
+    prog.field = field;
     let res_term = prog.eval_full_for_export();
     let Ok(term) = res_term else {
-        bail!("script {path:?} failed: {:?}", res_term.unwrap_err());
+        prog.report(res_term.unwrap_err(), ErrorFormat::Text);
+        bail!("script {path:?} failed");
     };
     // FIXME: shorten to: toml::Table::deserialize(term)
     let toml = toml::to_string(&term).unwrap();
