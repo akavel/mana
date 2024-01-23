@@ -8,19 +8,27 @@
 
 let module = {
   main = {
-    "Mateusz@desktop-ssng4gi" = raw,
-    raw = {
-      shadow_dir = m%"c:\prog\shadow"%,
-      handlers = handlers',
-      tree = tree',
-    },
-    script =
-      raw.tree |> (import "lib/mana.ncl").windows raw.shadow_dir raw.handlers,
+    "Mateusz@desktop-ssng4gi" =
+      common & {
+        handlers.c =
+          "lua53 handler/winfs.lua 39b9d89e-9522-45a3-a12b-450f027d0bf0",
+      },
+    "Mateusz@desktop-4k5pnqi" =
+      common & {
+        handlers.c =
+          "lua53 handler/winfs.lua d93d71ef-8b72-4351-a16a-cd2babb6630c",
+      },
+  },
+
+  common = {
+    shadow_dir = m%"c:\prog\shadow"%,
+    handlers = handlers',
+    tree = tree',
   },
 
   handlers' = {
 # TODO[LATER]: split by whitespace
-    c = "lua53 handler/winfs.lua 39b9d89e-9522-45a3-a12b-450f027d0bf0",
+    c | default = "lua53 handler/winfs.lua FIXME-UUID",
     path = "lua53 handler/winpath.lua",
     home = "lua53 handler/winhome.lua",
 # TODO[LATER]: `handle 0install lua53 handler/zeroinstall.lua`
