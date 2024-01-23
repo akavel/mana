@@ -7,7 +7,6 @@ use git2::Repository;
 use mlua::prelude::{
     FromLua, FromLuaMulti, IntoLua, IntoLuaMulti, Lua, LuaMultiValue, LuaResult, LuaTable, LuaValue,
 };
-use nickel_lang_core as nickel;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 // Trait for extending std::path::PathBuf
@@ -20,7 +19,7 @@ struct Cli {
     /// Path to a file containing a Nickel script to evaluate. If empty, a TOML file is loaded from
     /// standard input instead.
     #[arg(short, long)]
-    raw: Optional<String>,
+    ncl: Option<PathBuf>,
 
     #[command(subcommand)]
     command: Command,
@@ -50,15 +49,15 @@ fn main() -> Result<()> {
 
     let cli = Cli::parse();
     match &cli.command {
-        Command::Query => query(),
-        Command::Draft => draft(),
-        Command::Apply => apply(),
+        Command::Query => query(cli.ncl),
+        Command::Draft => draft(cli.ncl),
+        Command::Apply => apply(cli.ncl),
     }
 
     // TODO[LATER]: licensing information in --license flag
 }
 
-fn query() -> Result<()> {
+fn query(ncl: Option<PathBuf>) -> Result<()> {
     // Read and parse input - just parse TOML for now.
     // TODO: would prefer to somehow do it in streamed way, maybe
     let input = std::io::read_to_string(std::io::stdin()).context("failure reading stdin")?;
@@ -155,7 +154,7 @@ fn query() -> Result<()> {
     Ok(())
 }
 
-fn draft() -> Result<()> {
+fn draft(ncl: Option<PathBuf>) -> Result<()> {
     // Read and parse input - just parse TOML for now.
     // TODO: would prefer to somehow do it in streamed way, maybe
     let input = std::io::read_to_string(std::io::stdin()).context("failure reading stdin")?;
@@ -181,7 +180,7 @@ fn draft() -> Result<()> {
     Ok(())
 }
 
-fn apply() -> Result<()> {
+fn apply(ncl: Option<PathBuf>) -> Result<()> {
     // Read and parse input - just parse TOML for now.
     // TODO: would prefer to somehow do it in streamed way, maybe
     let input = std::io::read_to_string(std::io::stdin()).context("failure reading stdin")?;
@@ -207,6 +206,28 @@ fn apply() -> Result<()> {
     }
 
     Ok(())
+}
+
+fn parse_input(ncl: Option<PathBuf>) -> Result<Script> {
+    let Some(path) = ncl else {
+        // If no path to *.ncl file provided, read and parse TOML from
+        // stdin.
+        // TODO: would prefer to somehow do it in streamed way, maybe
+        let input = std::io::read_to_string(std::io::stdin()).context("failure reading stdin")?;
+        return parse_input_toml(&input);
+    };
+    use nickel_lang_core::eval::cache::lazy::CBNCache;
+    use nickel_lang_core::program::Program as Prog;
+    let source = std::fs::File::open(&path)?;
+    let err = std::io::stderr();
+    let mut prog = Prog::<CBNCache>::new_from_source(source, &path, err)?;
+    let res_term = prog.eval_full_for_export();
+    let Ok(term) = res_term else {
+        bail!("script {path:?} failed: {:?}", res_term.unwrap_err());
+    };
+    // FIXME: shorten to: toml::Table::deserialize(term)
+    let toml = toml::to_string(&term).unwrap();
+    parse_input_toml(&toml)
 }
 
 type PathContentMap = BTreeMap<String, String>;
