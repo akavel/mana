@@ -39,6 +39,7 @@ let module = {
   tree' = {
     c = {
       bin = oneliners |> oneliners_to_bat,
+      fotki.tapetki-windows."00-fetch.bat" = win-spotlight-save,
     },
     path = {
       c.bin = "",
@@ -88,6 +89,33 @@ let module = {
         value = "@%{x.value} %*\n",
       })
     |> std.record.from_array,
+
+  win-spotlight-save = m%%%%"
+    @echo off
+    setlocal
+    :: https://www.groovypost.com/howto/save-windows-10-spotlight-lock-screen-pictures/
+    :: https://stackoverflow.com/questions/7881035/checking-file-size-in-a-batch-script
+
+    set here=%CD%
+    cd /d %userprofile%\AppData\Local\Packages\Microsoft.Windows.ContentDeliveryManager_*\LocalState\Assets
+
+    set minsize=200000
+
+    for %%F in (*.*) do (
+        if %%~zF GTR %minsize% (
+            echo %%F
+            if not exist %here%\%%F.jpg (
+                copy /b %%F %here%\%%F.jpg
+            ) else (
+                echo ...exists
+            )
+        )
+    )
+    cd /d %here%
+    pause
+
+    endlocal
+    "%%%%,
 
 } in
 module.main
