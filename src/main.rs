@@ -5,7 +5,7 @@ use clap::{Parser, Subcommand};
 use git2::Repository;
 // mlua::prelude::* except ErrorContext; TODO: can we do simpler?
 use mlua::prelude::{
-    FromLua, FromLuaMulti, IntoLua, IntoLuaMulti, Lua, LuaMultiValue, LuaResult, LuaTable, LuaValue,
+    IntoLua, Lua, LuaMultiValue, LuaTable, LuaValue,
 };
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
