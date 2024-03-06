@@ -10,6 +10,10 @@ rust-version = "1.74"
 name = "mana"
 path = "src/main.rs"
 
+[[bin]]
+name = "zeroinst"
+path = "handler/zeroinst.rs"
+
 [dependencies]
 anyhow = "1.0.79"
 cap-std = "3.0.0"
@@ -24,4 +28,5 @@ thiserror = "1.0.56"
 toml = { version = "0.8.8", features = ["preserve_order"] }
 unicase = "2.7.0"
 whoami = { version = "1.4.1", default-features = false }
+yaserde = { version = "0.10.0", features = ["yaserde_derive"] }
 
