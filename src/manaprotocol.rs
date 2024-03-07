@@ -9,12 +9,16 @@ mod callee {
         fn affect(&mut self, path: &Path, shadow_root: &Path) -> Result<()>;
     }
 
-    pub fn parse_and_dispatch(instream: &mut impl BufRead, outstream: &mut impl Write, handler: &mut impl Handler) -> Result<()> {
+    pub fn parse_and_dispatch(
+        instream: &mut impl BufRead,
+        outstream: &mut impl Write,
+        handler: &mut impl Handler,
+    ) -> Result<()> {
         let mut buf = String::new();
         loop {
             buf.clear();
             if instream.read_line(&mut buf)? == 0 {
-                return Ok(()) // EOF
+                return Ok(()); // EOF
             }
             if buf.ends_with("\n") {
                 buf.pop();
@@ -33,7 +37,7 @@ mod callee {
                 let found = handler.detect(path)?;
                 let answer = if found { "present" } else { "absent" };
                 writeln!(outstream, "detected {answer}")?;
-                continue
+                continue;
             }
         }
     }
@@ -41,7 +45,7 @@ mod callee {
 
 #[cfg(test)]
 mod test {
-    use super::callee::{Handler, parse_and_dispatch};
+    use super::callee::{parse_and_dispatch, Handler};
     use anyhow::{bail, Context, Result};
     use std::io::BufReader;
     use std::path::Path;
@@ -53,13 +57,20 @@ mod test {
 
     impl Default for TestHandler {
         fn default() -> Self {
-            Self { lines: vec![], last_detect: false }
+            Self {
+                lines: vec![],
+                last_detect: false,
+            }
         }
     }
 
     impl Handler for TestHandler {
         fn detect(&mut self, path: &Path) -> Result<bool> {
-            self.lines.push(("detect".to_string(), path.to_string_lossy().into_owned(), "".to_string()));
+            self.lines.push((
+                "detect".to_string(),
+                path.to_string_lossy().into_owned(),
+                "".to_string(),
+            ));
             self.last_detect = !self.last_detect;
             Ok(self.last_detect)
         }
@@ -77,18 +88,32 @@ mod test {
     fn detecting() {
         let mut script = r#"com.akavel.mana.v1.rq
 detect foo/bar/baz
-detect fee/fo/fum"#.as_bytes();
+detect fee/fo/fum"#
+            .as_bytes();
         let mut h = TestHandler::default();
         let mut buf = Vec::new();
         parse_and_dispatch(&mut script, &mut buf, &mut h).unwrap();
-        assert_eq!(h.lines, vec![
-            ("detect".to_string(), "foo/bar/baz".to_string(), "".to_string()),
-            ("detect".to_string(), "fee/fo/fum".to_string(), "".to_string()),
-        ]);
-        assert_eq!(String::from_utf8(buf).unwrap(),
+        assert_eq!(
+            h.lines,
+            vec![
+                (
+                    "detect".to_string(),
+                    "foo/bar/baz".to_string(),
+                    "".to_string()
+                ),
+                (
+                    "detect".to_string(),
+                    "fee/fo/fum".to_string(),
+                    "".to_string()
+                ),
+            ]
+        );
+        assert_eq!(
+            String::from_utf8(buf).unwrap(),
             r#"com.akavel.mana.v1.rs
 detected present
 detected absent
-"#);
+"#
+        );
     }
 }
