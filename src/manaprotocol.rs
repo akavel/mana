@@ -1,22 +1,27 @@
 mod callee {
     use anyhow::{bail, Context, Result};
     use std::io::{BufRead, Write};
+    use std::path::Path;
 
     pub trait Handler {
-        fn detect(path: &Path) -> Result<bool>;
-        fn gather(path: &Path, shadow_root: &Path) -> Result<()>;
-        fn affect(path: &Path, shadow_root: &Path) -> Result<()>;
+        fn detect(&mut self, path: &Path) -> Result<bool>;
+        fn gather(&mut self, path: &Path, shadow_root: &Path) -> Result<()>;
+        fn affect(&mut self, path: &Path, shadow_root: &Path) -> Result<()>;
     }
 
-    pub fn parse_and_dispatch(&mut instream: impl BufRead, &mut outstream: impl Write, handler: impl Handler) -> Result<()> {
+    pub fn parse_and_dispatch(instream: &mut impl BufRead, outstream: &mut impl Write, handler: &mut impl Handler) -> Result<()> {
         let mut buf = String::new();
         loop {
             buf.clear();
             if instream.read_line(&mut buf)? == 0 {
                 return Ok(()) // EOF
             }
+            if buf.ends_with("\n") {
+                buf.pop();
+            }
+
             if &buf == "com.akavel.mana.v1.rq" {
-                outstream.write("com.akavel.mana.v1.rs")?;
+                writeln!(outstream, "com.akavel.mana.v1.rs")?;
                 continue;
             }
             const DETECT: &str = "detect ";
@@ -24,7 +29,7 @@ mod callee {
                 // TODO: split on space, verify nothing after it
                 // TODO: urlencoding lib looks not super stable, use better one
                 let arg = urlencoding::decode(raw_args)?;
-                let path = Path::new(&arg);
+                let path = Path::new(arg.as_ref());
                 let found = handler.detect(path)?;
                 let answer = if found { "present" } else { "absent" };
                 writeln!(outstream, "detected {answer}")?;
@@ -36,6 +41,11 @@ mod callee {
 
 #[cfg(test)]
 mod test {
+    use super::callee::{Handler, parse_and_dispatch};
+    use anyhow::{bail, Context, Result};
+    use std::io::BufReader;
+    use std::path::Path;
+
     struct TestHandler {
         lines: Vec<(String, String, String)>,
         last_detect: bool,
@@ -47,34 +57,38 @@ mod test {
         }
     }
 
-    impl super::Handler for TestHandler {
+    impl Handler for TestHandler {
         fn detect(&mut self, path: &Path) -> Result<bool> {
-            self.lines.append("detect".into(), path.into(), "".into());
+            self.lines.push(("detect".to_string(), path.to_string_lossy().into_owned(), "".to_string()));
             self.last_detect = !self.last_detect;
             Ok(self.last_detect)
         }
 
-        fn gather(path: &Path, shadow_root: &Path) -> Result<()> {
+        fn gather(&mut self, path: &Path, shadow_root: &Path) -> Result<()> {
             Ok(())
         }
 
-        fn affect(path: &Path, shadow_root: &Path) -> Result<()> {
+        fn affect(&mut self, path: &Path, shadow_root: &Path) -> Result<()> {
             Ok(())
         }
     }
 
     #[test]
     fn detecting() {
-        let script = r#"com.akavel.mana.v1.rq
+        let mut script = r#"com.akavel.mana.v1.rq
 detect foo/bar/baz
-detect fee/fo/fum"#;
-        let h = TestHandler::default();
-        let buf = StringBuffer::new();
-        parse_and_dispatch(&script, &mut buf, &mut h).unwrap();
+detect fee/fo/fum"#.as_bytes();
+        let mut h = TestHandler::default();
+        let mut buf = Vec::new();
+        parse_and_dispatch(&mut script, &mut buf, &mut h).unwrap();
         assert_eq!(h.lines, vec![
-            ("detect", "foo/bar/baz", ""),
-            ("detect", "fee/fo/fum", ""),
+            ("detect".to_string(), "foo/bar/baz".to_string(), "".to_string()),
+            ("detect".to_string(), "fee/fo/fum".to_string(), "".to_string()),
         ]);
-        assert_eq!(buf, "detected present\ndetected absent");
+        assert_eq!(String::from_utf8(buf).unwrap(),
+            r#"com.akavel.mana.v1.rs
+detected present
+detected absent
+"#);
     }
 }
