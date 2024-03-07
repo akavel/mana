@@ -36,4 +36,45 @@ mod callee {
 
 #[cfg(test)]
 mod test {
+    struct TestHandler {
+        lines: Vec<(String, String, String)>,
+        last_detect: bool,
+    }
+
+    impl Default for TestHandler {
+        fn default() -> Self {
+            Self { lines: vec![], last_detect: false }
+        }
+    }
+
+    impl super::Handler for TestHandler {
+        fn detect(&mut self, path: &Path) -> Result<bool> {
+            self.lines.append("detect".into(), path.into(), "".into());
+            self.last_detect = !self.last_detect;
+            Ok(self.last_detect)
+        }
+
+        fn gather(path: &Path, shadow_root: &Path) -> Result<()> {
+            Ok(())
+        }
+
+        fn affect(path: &Path, shadow_root: &Path) -> Result<()> {
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn detecting() {
+        let script = r#"com.akavel.mana.v1.rq
+detect foo/bar/baz
+detect fee/fo/fum"#;
+        let h = TestHandler::default();
+        let buf = StringBuffer::new();
+        parse_and_dispatch(&script, &mut buf, &mut h).unwrap();
+        assert_eq!(h.lines, vec![
+            ("detect", "foo/bar/baz", ""),
+            ("detect", "fee/fo/fum", ""),
+        ]);
+        assert_eq!(buf, "detected present\ndetected absent");
+    }
 }
