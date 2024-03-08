@@ -34,9 +34,11 @@ mod callee {
             if let Some(raw_args) = buf.strip_prefix(DETECT) {
                 // TODO: split on space, verify nothing after it
                 // TODO: urlencoding lib looks not super stable, use better one
-                let arg = urlencoding::decode(raw_args)?;
-                let path = Path::new(arg.as_ref());
-                let found = handler.detect(path)?;
+                let Some((raw_arg1,)) = raw_args.split(" ").collect_tuple() else {
+                    bail!("expected exactly 1 arg to 'detect', got: {raw_args:?}");
+                };
+                let path1 = PathBuf::from(urlencoding::decode(raw_arg1)?.as_ref());
+                let found = handler.detect(&path1)?;
                 let answer = if found { "present" } else { "absent" };
                 writeln!(outstream, "detected {answer}")?;
                 continue;
@@ -51,7 +53,21 @@ mod callee {
                 let path2 = PathBuf::from(urlencoding::decode(raw_arg2)?.as_ref());
                 handler.gather(&path1, &path2)?;
                 writeln!(outstream, "gathered {raw_arg1} {raw_arg2}")?;
+                continue;
             }
+            const AFFECT: &str = "affect ";
+            if let Some(raw_args) = buf.strip_prefix(AFFECT) {
+                // TODO: more details in error handling
+                let Some((raw_arg1, raw_arg2)) = raw_args.split(" ").collect_tuple() else {
+                    bail!("expected exactly 2 args to 'affect', got: {raw_args:?}");
+                };
+                let path1 = PathBuf::from(urlencoding::decode(raw_arg1)?.as_ref());
+                let path2 = PathBuf::from(urlencoding::decode(raw_arg2)?.as_ref());
+                handler.affect(&path1, &path2)?;
+                writeln!(outstream, "affected {raw_arg1} {raw_arg2}")?;
+                continue;
+            }
+            bail!("unknown format of input line: {buf:?}");
         }
     }
 }
@@ -98,6 +114,11 @@ mod test {
         }
 
         fn affect(&mut self, path: &Path, shadow_root: &Path) -> Result<()> {
+            self.lines.push((
+                "affect".to_string(),
+                path.to_string_lossy().into_owned(),
+                shadow_root.to_string_lossy().into_owned(),
+            ));
             Ok(())
         }
     }
@@ -108,6 +129,7 @@ mod test {
 detect foo/bar/baz
 detect fee/fo/fum
 gather bee/bop zee/zam
+affect a/b c/d
 "#
         .as_bytes();
         let mut h = TestHandler::default();
@@ -131,6 +153,7 @@ gather bee/bop zee/zam
                     "bee/bop".to_string(),
                     "zee/zam".to_string(),
                 ),
+                ("affect".to_string(), "a/b".to_string(), "c/d".to_string(),),
             ]
         );
         assert_eq!(
@@ -139,6 +162,7 @@ gather bee/bop zee/zam
 detected present
 detected absent
 gathered bee/bop zee/zam
+affected a/b c/d
 "#
         );
     }
