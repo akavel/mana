@@ -1,7 +1,9 @@
 mod callee {
     use anyhow::{bail, Context, Result};
+    use itertools::Itertools;
+
     use std::io::{BufRead, Write};
-    use std::path::Path;
+    use std::path::{Path, PathBuf};
 
     pub trait Handler {
         fn detect(&mut self, path: &Path) -> Result<bool>;
@@ -38,6 +40,17 @@ mod callee {
                 let answer = if found { "present" } else { "absent" };
                 writeln!(outstream, "detected {answer}")?;
                 continue;
+            }
+            const GATHER: &str = "gather ";
+            if let Some(raw_args) = buf.strip_prefix(GATHER) {
+                // TODO: more details in error handling
+                let Some((raw_arg1, raw_arg2)) = raw_args.split(" ").collect_tuple() else {
+                    bail!("expected exactly 2 args to 'gather', got: {raw_args:?}");
+                };
+                let path1 = PathBuf::from(urlencoding::decode(raw_arg1)?.as_ref());
+                let path2 = PathBuf::from(urlencoding::decode(raw_arg2)?.as_ref());
+                handler.gather(&path1, &path2)?;
+                writeln!(outstream, "gathered {raw_arg1} {raw_arg2}")?;
             }
         }
     }
@@ -76,6 +89,11 @@ mod test {
         }
 
         fn gather(&mut self, path: &Path, shadow_root: &Path) -> Result<()> {
+            self.lines.push((
+                "gather".to_string(),
+                path.to_string_lossy().into_owned(),
+                shadow_root.to_string_lossy().into_owned(),
+            ));
             Ok(())
         }
 
@@ -85,11 +103,13 @@ mod test {
     }
 
     #[test]
-    fn detecting() {
+    fn parsing_and_dispatching() {
         let mut script = r#"com.akavel.mana.v1.rq
 detect foo/bar/baz
-detect fee/fo/fum"#
-            .as_bytes();
+detect fee/fo/fum
+gather bee/bop zee/zam
+"#
+        .as_bytes();
         let mut h = TestHandler::default();
         let mut buf = Vec::new();
         parse_and_dispatch(&mut script, &mut buf, &mut h).unwrap();
@@ -106,6 +126,11 @@ detect fee/fo/fum"#
                     "fee/fo/fum".to_string(),
                     "".to_string()
                 ),
+                (
+                    "gather".to_string(),
+                    "bee/bop".to_string(),
+                    "zee/zam".to_string(),
+                ),
             ]
         );
         assert_eq!(
@@ -113,6 +138,7 @@ detect fee/fo/fum"#
             r#"com.akavel.mana.v1.rs
 detected present
 detected absent
+gathered bee/bop zee/zam
 "#
         );
     }
