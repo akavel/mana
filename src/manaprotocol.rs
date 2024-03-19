@@ -26,8 +26,8 @@ mod callee {
                 buf.pop();
             }
 
-            if &buf == "com.akavel.mana.v1.rq" {
-                writeln!(outstream, "com.akavel.mana.v1.rs")?;
+            if &buf == "com.akavel.mana.v2.rq" {
+                writeln!(outstream, "com.akavel.mana.v2.rs")?;
                 continue;
             }
             const DETECT: &str = "detect ";
@@ -68,6 +68,50 @@ mod callee {
                 continue;
             }
             bail!("unknown format of input line: {buf:?}");
+        }
+    }
+}
+
+mod caller {
+    use std::process::*;
+
+    pub struct Cmd {
+        stdin: ChildStdin,
+        //stdout: ChildStdout,
+        stdout: std::io::BufReader<ChildStdout>,
+        //stderr: ChildStderr, // TODO[LATER]
+    }
+
+    impl Cmd {
+        pub fn detect(&mut self, path: &Path) -> Result<bool> {
+            Ok(self.call("detect", path, None)? == "present".to_string())
+        }
+
+        pub fn gather(&mut self, path: &Path, shadow_root: &Path) -> Result<()> {
+            Ok(self.call("gather", path, Some(shadow_root))?)
+        }
+
+        pub fn affect(&mut self, path: &Path, shadow_root: &Path) -> Result<()> {
+            Ok(self.call("affect", path, Some(shadow_root))?)
+        }
+
+        fn call(&mut self, cmd: &str, path: &Path, shadow_root: Option<&Path>) -> Result<String> {
+            // TODO[LATER]: spawn thread to ensure we don't deadlock if pipe buffer size exceeded
+            let path_enc = urlencoding::encode(path);
+            if let Some(shadow) = shadow_root {
+                let shadow_enc = urlencoding::encode(shadow);
+                writeln!(self.stdin, "{cmd} {path_enc} {shadow_enc}")?;
+            } else {
+                writeln!(self.stdin, "{cmd} {path_enc}")?;
+            }
+            let mut buf = String::new();
+            self.stdout.read_line(&mut buf)?;
+            let prefix = cmd.to_string() + "ed ";
+            let Some(suffix) = buf.strip_prefix(prefix) else {
+                // TODO[LATER]: print name of called command
+                bail!("bad mana protocol response to {cmd}: {buf:?}");
+            };
+            Ok(suffix.trim_end_matches("\n").to_string())
         }
     }
 }
@@ -125,7 +169,7 @@ mod test {
 
     #[test]
     fn parsing_and_dispatching() {
-        let mut script = r#"com.akavel.mana.v1.rq
+        let mut script = r#"com.akavel.mana.v2.rq
 detect foo/bar/baz
 detect fee/fo/fum
 gather bee/bop zee/zam
@@ -158,7 +202,7 @@ affect a/b c/d
         );
         assert_eq!(
             String::from_utf8(buf).unwrap(),
-            r#"com.akavel.mana.v1.rs
+            r#"com.akavel.mana.v2.rs
 detected present
 detected absent
 gathered bee/bop zee/zam
