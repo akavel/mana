@@ -10,9 +10,9 @@ rust-version = "1.74"
 name = "mana"
 path = "src/main.rs"
 
-[[bin]]
-name = "zeroinst"
-path = "handler/zeroinst.rs"
+#[[bin]]
+#name = "zeroinst"
+#path = "handler/zeroinst.rs"
 
 [dependencies]
 anyhow = "1.0.79"

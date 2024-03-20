@@ -2,16 +2,23 @@ use anyhow::{bail, Context, Result};
 
 use std::path::Path;
 
-fn main() -> Result<()> {
-    query_0install();
-    Ok(())
+use crate::manaprotocol::callee;
+
+struct Handler {
 }
 
-fn exists(path: &Path) {}
+impl callee::Handler for Handler {
+    fn detect(&mut self, path: &Path) -> Result<bool> {
+    }
 
-fn query(path: &Path, shadowpath: &Path) {}
+    fn gather(&mut self, path: &Path, shadow_root: &Path) -> Result<()> {
+    }
 
-mod zeroinstall {
+    fn affect(&mut self, path: &Path, shadow_root: &Path) -> Result<()> {
+    }
+}
+
+mod raw {
     use yaserde::YaDeserialize;
 
     #[derive(YaDeserialize, Debug)]
@@ -48,7 +55,7 @@ fn query_0install() -> Apps {
     // FIXME: why std::str::from_utf8(&stdout).unwrap() panicked?
     let s = String::from_utf8_lossy(&stdout);
     println!("{}", s); //.unwrap());
-    let result = yaserde::de::from_str::<zeroinstall::AppList>(&s).unwrap();
+    let result = yaserde::de::from_str::<raw::AppList>(&s).unwrap();
     println!("{:?}", result); //.unwrap());
     Apps {}
 }

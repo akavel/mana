@@ -82,7 +82,7 @@ mod caller {
         //stderr: ChildStderr, // TODO[LATER]
     }
 
-    impl Cmd {
+    impl super::callee::Handler for Cmd {
         pub fn detect(&mut self, path: &Path) -> Result<bool> {
             Ok(self.call("detect", path, None)? == "present".to_string())
         }
@@ -94,7 +94,9 @@ mod caller {
         pub fn affect(&mut self, path: &Path, shadow_root: &Path) -> Result<()> {
             Ok(self.call("affect", path, Some(shadow_root))?)
         }
+    }
 
+    impl Cmd {
         fn call(&mut self, cmd: &str, path: &Path, shadow_root: Option<&Path>) -> Result<String> {
             // TODO[LATER]: spawn thread to ensure we don't deadlock if pipe buffer size exceeded
             let path_enc = urlencoding::encode(path);
