@@ -788,6 +788,7 @@ dependencies = [
  "thiserror",
  "toml 0.8.8",
  "unicase",
+ "url",
  "whoami",
  "yaserde",
 ]

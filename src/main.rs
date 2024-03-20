@@ -4,9 +4,7 @@ use cap_std::fs::Dir;
 use clap::{Parser, Subcommand};
 use git2::Repository;
 // mlua::prelude::* except ErrorContext; TODO: can we do simpler?
-use mlua::prelude::{
-    IntoLua, Lua, LuaMultiValue, LuaTable, LuaValue,
-};
+use mlua::prelude::{IntoLua, Lua, LuaMultiValue, LuaTable, LuaValue};
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use toml::macros::Deserialize;

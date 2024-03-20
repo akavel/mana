@@ -31,6 +31,7 @@ let module = {
     c | default = "lua53 handler/winfs.lua FIXME-UUID",
     path = "lua53 handler/winpath.lua",
     home = "lua53 handler/winhome.lua",
+# zeroinstall = "handler/zeroinst",
 # TODO[LATER]: `handle 0install lua53 handler/zeroinstall.lua`
 # TODO[LATER]: `handle choco lua53 handler/chocolatey.lua`
 # TODO[LATER]: add refreshenv support copied from chocolatey
