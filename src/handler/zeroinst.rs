@@ -1,6 +1,8 @@
 use anyhow::{bail, Context, Result};
+use url::Url;
 
-use std::path::Path;
+use std::collections::BTreeMap;
+use std::path::{Path, PathBuf};
 
 use crate::manaprotocol::callee;
 
@@ -41,7 +43,11 @@ mod raw {
     }
 }
 
-struct Apps {}
+type Timestamp = u64;
+
+struct Apps {
+    map: BTreeMap<PathBuf, Timestamp>,
+}
 
 fn query_0install() -> Apps {
     use std::process::Command;
@@ -55,7 +61,25 @@ fn query_0install() -> Apps {
     // FIXME: why std::str::from_utf8(&stdout).unwrap() panicked?
     let s = String::from_utf8_lossy(&stdout);
     println!("{}", s); //.unwrap());
-    let result = yaserde::de::from_str::<raw::AppList>(&s).unwrap();
-    println!("{:?}", result); //.unwrap());
-    Apps {}
+    let app_list = yaserde::de::from_str::<raw::AppList>(&s).unwrap();
+    println!("{:?}", app_list); //.unwrap());
+    let map: Result<BTreeMap<_, _>> = app_list
+        .app
+        .into_iter()
+        .map(|app| {
+            let url = Url::parse(&app.interface)?;
+            // FIXME: ensure/sanitize/encode safe scheme, no username/password, no ipv6, no port, etc.
+            let scheme = url.scheme().to_string();
+            let host = url.host_str().unwrap().to_string();
+            let path: PathBuf = url
+                .path_segments()
+                .unwrap()
+                .map(|s| Path::new(s).to_path_buf())
+                .collect();
+            let disk_path = Path::new(&scheme).join(host).join(path);
+            Ok((disk_path, app.timestamp))
+        })
+        .collect();
+    println!("{map:?}");
+    Apps { map: map.unwrap() }
 }
