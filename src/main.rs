@@ -7,6 +7,7 @@ use git2::Repository;
 use mlua::prelude::{IntoLua, Lua, LuaMultiValue, LuaTable, LuaValue};
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
+use thiserror::Error;
 use toml::macros::Deserialize;
 // Trait for extending std::path::PathBuf
 use path_slash::PathBufExt as _;
@@ -77,8 +78,19 @@ fn query(ncl: Option<PathBuf>) -> Result<()> {
     // Initialize handlers
     let lua = Lua::new();
     let lua_handlers = lua.create_table().unwrap();
+    let mut rust_handlers = RustHandlers{ map: BTreeMap::new() };
     for (root, cmd) in script.handlers {
-        init_handler(&lua, &lua_handlers, root, cmd)?;
+        if let Ok(_) = init_lua_handler(&lua, &lua_handlers, root, cmd) {
+            continue;
+        }
+        match cmd {
+            "zeroinstall" => {
+                rust_handlers.map.insert(root, Box::new(zeroinst::Handler::new()?));
+            },
+            _ => {
+                bail!("unknown handler command: {cmd:?}");
+            }
+        }
     }
 
     // Make a list of paths in 'tree' and in git
@@ -121,21 +133,27 @@ fn query(ncl: Option<PathBuf>) -> Result<()> {
             dir.create_dir_all(parent).context("in shadow_dir")?;
         }
         let (prefix, subpath) = split_handler_path(&path);
-        let found: bool = call_handler_method(&lua_handlers, prefix, "exists", subpath)
-            .with_context(|| format!("calling handlers[{prefix:?}]:exists({subpath:?})"))?;
+        let found: bool = if let Some(r) = rust_handlers.maybe_detect(&prefix, &subpath) {
+            r?
+        } else {
+            call_handler_method(&lua_handlers, prefix, "exists", subpath)
+                .with_context(|| format!("calling handlers[{prefix:?}]:exists({subpath:?})"))?
+        };
         // println!(" . {prefix:?} {subpath:?} {found:?}");
         let shadow_path = PathBuf::from(&script.shadow_dir).join(PathBuf::from_slash(path));
         if !found {
             std::fs::remove_file(shadow_path);
             continue;
         }
-        call_handler_method(
-            &lua_handlers,
-            prefix,
-            "query",
-            (subpath, shadow_path.to_str().unwrap()),
-        )
-        .with_context(|| format!("calling handlers[{prefix:?}]:query({subpath:?})"))?;
+        let Some(_) = rust_handlers.maybe_gather(&prefix, &subpath, &script.shadow_dir) else {
+            call_handler_method(
+                &lua_handlers,
+                prefix,
+                "query",
+                (subpath, shadow_path.to_str().unwrap()),
+            )
+            .with_context(|| format!("calling handlers[{prefix:?}]:query({subpath:?})"))?;
+        };
     }
 
     // Two-way compare: current git <-> results of handlers.query
@@ -210,13 +228,16 @@ fn apply(ncl: Option<PathBuf>) -> Result<()> {
         let os_rel_path = PathBuf::from_slash(path);
         let shadow_path = PathBuf::from(&script.shadow_dir).join(&os_rel_path);
         let (prefix, subpath) = split_handler_path(&path);
-        call_handler_method(
-            &lua_handlers,
-            prefix,
-            "apply",
-            (subpath, shadow_path.to_str().unwrap()),
-        )
-        .with_context(|| format!("calling handlers[{prefix:?}]:apply({subpath:?})"))?;
+        let Some(_) = rust_handlers.maybe_affect(&prefix, &subpath, &script.shadow_dir) else {
+            call_handler_method(
+                &lua_handlers,
+                &rust_handlers,
+                prefix,
+                "apply",
+                (subpath, shadow_path.to_str().unwrap()),
+            )
+            .with_context(|| format!("calling handlers[{prefix:?}]:apply({subpath:?})"))?;
+        };
         use git2::Status;
         match stat.status() {
             Status::WT_NEW | Status::WT_MODIFIED => {
@@ -369,13 +390,22 @@ fn check_git_statuses_empty(repo: &Repository) -> Result<bool> {
     Ok(stat.is_empty())
 }
 
-fn init_handler(lua: &Lua, dst: &LuaTable, root: String, cmd: Vec<String>) -> Result<()> {
-    if cmd.len() < 2 {
-        bail!("Handler for {root:?} has too few elements - expected 2+, got: {cmd:?}");
+#[derive(Error, Debug)]
+enum InitHandlerError {
+    #[error("not a Lua-based handler")]
+    NotLua,
+}
+
+fn init_lua_handler(lua: &Lua, dst: &LuaTable, root: String, cmd: Vec<String>) -> Result<()> {
+    if cmd.len() < 2 || cmd[0] != "lua53" {
+        return Err(InitHandlerError::NotLua);
     }
-    if cmd[0] != "lua53" {
-        bail!("FIXME: currently handler[0] must be 'lua53'");
-    }
+    //if cmd.len() < 2 {
+    //    bail!("Handler for {root:?} has too few elements - expected 2+, got: {cmd:?}");
+    //}
+    //if cmd[0] != "lua53" {
+    //    bail!("FIXME: currently handler[0] must be 'lua53'");
+    //}
     let source = std::fs::read_to_string(&cmd[1])
         .with_context(|| format!("reading Lua script for handler for {root:?}"))?;
     // TODO: eval and load returned module - must refactor scripts first
@@ -417,12 +447,34 @@ fn split_handler_path(path: &str) -> (&str, &str) {
     return (start, end);
 }
 
+struct RustHandlers {
+    map: BTreeMap<String, Box<dyn callee::Handler>>,
+}
+
+impl RustHandlers {
+    fn maybe_detect(&mut self, prefix: &str, subpath: &Path) -> Option<Result<bool>> {
+        self.map.get_mut(prefix).map(|h| h.detect(&subpath))
+    }
+
+    fn maybe_gather(&mut self, prefix: &str, subpath: &Path, shadow_root: &Path) -> Option<Result<()>> {
+        self.map.get_mut(prefix).map(|h| h.gather(&subpath, shadow_root.join(prefix)))
+    }
+
+    fn maybe_affect(&mut self, prefix: &str, subpath: &Path, shadow_root: &Path) -> Option<Result<()>> {
+        self.map.get_mut(prefix).map(|h| h.affect(&subpath, shadow_root.join(prefix)))
+    }
+}
+
 fn call_handler_method<'a, V: mlua::FromLuaMulti<'a>>(
     handlers: &LuaTable<'a>,
+    rust_handlers: &BTreeMap<String, Box<dyn callee::Handler>>,
     prefix: &str,
     method: &str,
     args: impl mlua::IntoLuaMulti<'a>,
 ) -> Result<V> {
+    if let Some(handler) = rust_handlers.get(prefix) {
+    }
+
     let handler: LuaValue = handlers.get(prefix).unwrap();
     let LuaValue::Table(ref t) = handler else {
         bail!("expected Lua handler for {prefix:?} to be a table, but got: {handler:?}");
