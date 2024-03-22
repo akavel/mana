@@ -51,8 +51,10 @@ let module = {
       ".gitconfig" = gitconfig,
       AppData.Local.nvim."init.vim" = import "vimrc.txt",
     },
-    zeroinstall = {
-      https."akavel.github.io"."0catalog".feeds."symphytum.xml" = "1702245476",
+    zeroinstall = by-path {
+      "https/akavel.github.io/0catalog/feeds/adb.xml" = "1702245477",
+      "https/akavel.github.io/0catalog/feeds/symphytum.xml" = "1702245476",
+      "http/0install.de/feeds/SevenZip_CLI.xml" = "1702245476",
     },
   },
 
@@ -120,6 +122,14 @@ let module = {
 
     endlocal
     "%%%%,
+
+  by-path = fun record-with-paths => record-with-paths
+    |> std.record.to_array  # [{field=..., value=...}...]
+    |> std.array.map (fun {field, value} => field |> std.string.split "/" |> put-deep value)
+    |> std.record.merge_all,
+
+  put-deep = fun value path =>
+    path |> std.array.fold_right (fun it acc => std.record.insert it acc {}) value,
 
 } in
 module.main
