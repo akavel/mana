@@ -1,2 +1,2 @@
-pub mod manaprotocol;
 pub mod handler;
+pub mod manaprotocol;

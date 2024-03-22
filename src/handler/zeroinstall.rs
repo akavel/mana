@@ -6,24 +6,23 @@ use std::path::{Path, PathBuf};
 
 use crate::manaprotocol::callee;
 
-struct Handler {
-    apps: Apps,
+pub struct Handler {
+    apps: BTreeMap<PathBuf, Timestamp>,
 }
 
 impl Handler {
     pub fn new() -> Result<Handler> {
-        let apps = query_0install()?;
-        Ok(Handler{ apps })
+        query_0install()
     }
 }
 
 impl callee::Handler for Handler {
     fn detect(&mut self, path: &Path) -> Result<bool> {
-        Ok(self.apps.contains_key(&path))
+        Ok(self.apps.contains_key(path))
     }
 
     fn gather(&mut self, path: &Path, shadow_prefix: &Path) -> Result<()> {
-        let t = self.apps.get(&path)?;
+        let t = self.apps.get(path).unwrap();
         std::fs::write(shadow_prefix.join(path), format!("{t}"))?;
         Ok(())
     }
@@ -35,11 +34,7 @@ impl callee::Handler for Handler {
 
 type Timestamp = u64;
 
-struct Apps {
-    map: BTreeMap<PathBuf, Timestamp>,
-}
-
-fn query_0install() -> Result<Apps> {
+fn query_0install() -> Result<Handler> {
     use std::process::Command;
     // TODO[LATER]: streaming read & parse
     // TODO[LATER]: handle stderr & better handling of errors/failures
@@ -51,7 +46,7 @@ fn query_0install() -> Result<Apps> {
     // FIXME: why std::str::from_utf8(&stdout).unwrap() panicked?
     let s = String::from_utf8_lossy(&stdout);
     //println!("{}", s); //.unwrap());
-    let app_list = yaserde::de::from_str::<raw::AppList>(&s)?; //.unwrap();
+    let app_list = yaserde::de::from_str::<raw::AppList>(&s).unwrap();
     //println!("{:?}", app_list); //.unwrap());
     let map: Result<BTreeMap<_, _>> = app_list
         .app
@@ -71,7 +66,7 @@ fn query_0install() -> Result<Apps> {
         })
         .collect();
     //println!("{map:?}");
-    Ok(Apps { map: map? })
+    Ok(Handler { apps: map? })
 }
 
 mod raw {
