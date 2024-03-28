@@ -4,6 +4,7 @@ use url::Url;
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 
 use crate::manaprotocol::callee;
 
@@ -29,8 +30,12 @@ impl callee::Handler for Handler {
     }
 
     fn affect(&mut self, path: &Path, shadow_prefix: &Path) -> Result<()> {
+        let shadow_path = shadow_prefix.join(path);
         // FIXME: handle file-not-found error - delete app from 0install then
-        let content = std::fs::read(&path)?;
+        let content = std::fs::read(&shadow_path)?;
+        let timestamp: u64 = std::str::from_utf8(&content)?.parse()?;
+
+        // Convert path to URL
         let mut components = path.components();
         let Some((scheme, host)) = components.next_tuple() else {
             bail!("missing scheme or host in path: {path:?}");
@@ -45,14 +50,43 @@ impl callee::Handler for Handler {
         let Ok(_) = url.set_scheme(scheme.as_os_str().to_str().unwrap()) else {
             bail!("error setting scheme as: {scheme:?}");
         };
-        bail!("NIY");
+
+        // Build XML with the app details for feeding into `0install`
+        let list = raw::AppList {
+            app: vec![
+                raw::App {
+                    interface: url.into(),
+                    timestamp,
+                },
+            ],
+        };
+        let list_file = tempfile::NamedTempFile::new()?;
+        let rs = yaserde::ser::serialize_with_writer_content(&list, list_file);
+        let Ok(list_file) = rs else {
+            bail!("{}", rs.unwrap_err());
+        };
+
+        // Feed the XML into `0install` to install the app.
+        let out = Command::new("0install")
+            .args(["import-apps", "--batch", "-o", &list_file.path().to_string_lossy()])
+            .output()?;
+        if !out.status.success() {
+            bail!(
+                "0install failed; STDOUT: {:?}, STDERR: {:?}",
+                String::from_utf8_lossy(&out.stdout),
+                String::from_utf8_lossy(&out.stderr),
+            );
+        }
+
+        // TODO[LATER]: refresh query_0install - or mark dirty
+
+        Ok(())
     }
 }
 
 type Timestamp = u64;
 
 fn query_0install() -> Result<Handler> {
-    use std::process::Command;
     // TODO[LATER]: streaming read & parse
     // TODO[LATER]: handle stderr & better handling of errors/failures
     let stdout = Command::new("0install")
@@ -87,9 +121,9 @@ fn query_0install() -> Result<Handler> {
 }
 
 mod raw {
-    use yaserde::YaDeserialize;
+    use yaserde::{YaDeserialize, YaSerialize};
 
-    #[derive(YaDeserialize, Debug)]
+    #[derive(YaDeserialize, YaSerialize, Debug)]
     #[yaserde(
         rename = "app-list",
         namespace = "http://0install.de/schema/desktop-integration/app-list"
@@ -99,7 +133,7 @@ mod raw {
         pub app: Vec<App>,
     }
 
-    #[derive(YaDeserialize, Debug)]
+    #[derive(YaDeserialize, YaSerialize, Debug)]
     #[yaserde(rename = "app")]
     pub struct App {
         #[yaserde(attribute)]
