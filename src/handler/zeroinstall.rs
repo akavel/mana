@@ -80,12 +80,10 @@ impl callee::Handler for Handler {
 
         // Build XML with the app details for feeding into `0install`
         let list = raw::AppList {
-            app: vec![
-                raw::App {
-                    interface: url.into(),
-                    timestamp,
-                },
-            ],
+            app: vec![raw::App {
+                interface: url.into(),
+                timestamp,
+            }],
         };
         let list_file = tempfile::NamedTempFile::new()?;
         let rs = yaserde::ser::serialize_with_writer(&list, list_file, &Default::default());
