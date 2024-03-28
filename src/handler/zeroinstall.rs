@@ -1,4 +1,5 @@
 use anyhow::{bail, Context, Result};
+use itertools::Itertools;
 use url::Url;
 
 use std::collections::BTreeMap;
@@ -28,6 +29,22 @@ impl callee::Handler for Handler {
     }
 
     fn affect(&mut self, path: &Path, shadow_prefix: &Path) -> Result<()> {
+        // FIXME: handle file-not-found error - delete app from 0install then
+        let content = std::fs::read(&path)?;
+        let mut components = path.components();
+        let Some((scheme, host)) = components.next_tuple() else {
+            bail!("missing scheme or host in path: {path:?}");
+        };
+        let rel_path = components.collect::<PathBuf>();
+        let Ok(mut url) = Url::from_file_path(&rel_path) else {
+            bail!("error converting path to url: {rel_path:?}");
+        };
+        let Ok(_) = url.set_host(Some(host.as_os_str().to_str().unwrap())) else {
+            bail!("error setting host as: {host:?}");
+        };
+        let Ok(_) = url.set_scheme(scheme.as_os_str().to_str().unwrap()) else {
+            bail!("error setting scheme as: {scheme:?}");
+        };
         bail!("NIY");
     }
 }
