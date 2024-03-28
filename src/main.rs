@@ -186,6 +186,25 @@ fn query(ncl: Option<PathBuf>) -> Result<()> {
 fn draft(ncl: Option<PathBuf>) -> Result<()> {
     let script = parse_input(ncl)?;
 
+    // Make a list of paths in git
+    let repo = Repository::open(&script.shadow_dir).context("failure opening 'shadow_dir'")?;
+    let head = repo.head()?;
+    let head_tree = head.peel_to_tree()?;
+    // TODO: unicode normaliz.: https://stackoverflow.com/q/47813162/#comment82595250_47813878
+    //let mut case_insensitive_paths = std::collections::HashMap::<UniCase<String>, String>::new();
+    let mut paths = PathSet::new();
+    head_tree.walk(git2::TreeWalkMode::PreOrder, |root, entry| {
+        if entry.kind() == Some(git2::ObjectType::Blob) {
+            let name = entry.name().unwrap();
+            let slash_path = root.to_string() + name;
+            // FIXME: bring back case_insensitive_paths
+            // TODO: also check if entry already existed here
+            //case_insensitive_paths.insert(slash_path.clone().into(), slash_path.clone());
+            paths.insert(slash_path);
+        }
+        git2::TreeWalkResult::Ok
+    })?;
+
     // TODO[LATER]: maybe check if git status clean at script.shadow_dir
 
     // TODO[LATER]: validate that paths were not already added (and do it case insensitively)
@@ -198,7 +217,14 @@ fn draft(ncl: Option<PathBuf>) -> Result<()> {
         if let Some(parent) = parent_dir(&os_path) {
             dir.create_dir_all(parent).context("in shadow_dir")?;
         }
-        dir.write(path, contents).context("in shadow_dir")?;
+        dir.write(&path, contents).context("in shadow_dir")?;
+
+        paths.remove(&path);
+    }
+
+    // Delete files found on disk but not found in script
+    for path in &paths {
+        dir.remove_file(path);
     }
 
     // TODO[LATER]: add support for binary files, maybe somehow
