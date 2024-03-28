@@ -4,6 +4,7 @@ use path_slash::PathBufExt as _;
 use url::Url;
 
 use std::collections::BTreeMap;
+use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -33,9 +34,6 @@ impl callee::Handler for Handler {
     fn affect(&mut self, path: &Path, shadow_prefix: &Path) -> Result<()> {
         //println!("MCDBG path={path:?}, spfx={shadow_prefix:?}");
         let shadow_path = shadow_prefix.join(path);
-        // FIXME: handle file-not-found error - delete app from 0install then
-        let content = std::fs::read(&shadow_path)?;
-        let timestamp: u64 = std::str::from_utf8(&content)?.parse()?;
 
         // Convert path to URL
         // TODO[LATER]: is there better way than first parsing dummy url?
@@ -55,6 +53,30 @@ impl callee::Handler for Handler {
         let Ok(_) = url.set_scheme(scheme.as_os_str().to_str().unwrap()) else {
             bail!("error setting scheme as: {scheme:?}");
         };
+
+        // Try reading shadow file.
+        let maybe_content = std::fs::read(&shadow_path);
+
+        // Handle file-not-found scenario - remove app from 0install
+        // TODO: merge two ifs once let-chains are stabilized
+        if let Err(ref err) = maybe_content {
+            if err.kind() == ErrorKind::NotFound {
+                let out = Command::new("0install")
+                    .args(["remove", &String::from(url)])
+                    .output()?;
+                if !out.status.success() {
+                    bail!(
+                        "0install remove failed; STDOUT: {:?}, STDERR: {:?}",
+                        String::from_utf8_lossy(&out.stdout),
+                        String::from_utf8_lossy(&out.stderr),
+                    );
+                }
+                // TODO[LATER]: refresh query_0install - or mark dirty
+                return Ok(());
+            }
+        }
+
+        let timestamp: u64 = std::str::from_utf8(&maybe_content?)?.parse()?;
 
         // Build XML with the app details for feeding into `0install`
         let list = raw::AppList {
