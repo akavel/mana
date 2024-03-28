@@ -1,5 +1,6 @@
 use anyhow::{bail, Context, Result};
 use itertools::Itertools;
+use path_slash::PathBufExt as _;
 use url::Url;
 
 use std::collections::BTreeMap;
@@ -30,20 +31,24 @@ impl callee::Handler for Handler {
     }
 
     fn affect(&mut self, path: &Path, shadow_prefix: &Path) -> Result<()> {
+        //println!("MCDBG path={path:?}, spfx={shadow_prefix:?}");
         let shadow_path = shadow_prefix.join(path);
         // FIXME: handle file-not-found error - delete app from 0install then
         let content = std::fs::read(&shadow_path)?;
         let timestamp: u64 = std::str::from_utf8(&content)?.parse()?;
 
         // Convert path to URL
+        // TODO[LATER]: is there better way than first parsing dummy url?
+        let mut url = Url::parse("http://akavel.com").unwrap();
         let mut components = path.components();
         let Some((scheme, host)) = components.next_tuple() else {
             bail!("missing scheme or host in path: {path:?}");
         };
         let rel_path = components.collect::<PathBuf>();
-        let Ok(mut url) = Url::from_file_path(&rel_path) else {
-            bail!("error converting path to url: {rel_path:?}");
-        };
+        url.set_path(&rel_path.to_slash().unwrap());
+        //let Ok(mut url) = Url::from_file_path(&rel_path) else {
+        //    bail!("error converting path to url: {rel_path:?}");
+        //};
         let Ok(_) = url.set_host(Some(host.as_os_str().to_str().unwrap())) else {
             bail!("error setting host as: {host:?}");
         };
@@ -61,14 +66,18 @@ impl callee::Handler for Handler {
             ],
         };
         let list_file = tempfile::NamedTempFile::new()?;
-        let rs = yaserde::ser::serialize_with_writer_content(&list, list_file);
+        let rs = yaserde::ser::serialize_with_writer(&list, list_file, &Default::default());
         let Ok(list_file) = rs else {
             bail!("{}", rs.unwrap_err());
         };
+        //println!("MCDBG XML {}", String::from_utf8_lossy(&std::fs::read(list_file.path()).unwrap()));
 
         // Feed the XML into `0install` to install the app.
+        let xml_path = list_file.into_temp_path();
+        println!("- 0install {path:?}...");
         let out = Command::new("0install")
-            .args(["import-apps", "--batch", "-o", &list_file.path().to_string_lossy()])
+            //.args(["import-apps", "--batch", "-o", &list_file.path().to_string_lossy()])
+            .args(["import-apps", "--batch", &xml_path.to_string_lossy()])
             .output()?;
         if !out.status.success() {
             bail!(

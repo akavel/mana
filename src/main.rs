@@ -258,14 +258,15 @@ fn apply(ncl: Option<PathBuf>) -> Result<()> {
         let os_rel_path = PathBuf::from_slash(path);
         let shadow_path = PathBuf::from(&script.shadow_dir).join(&os_rel_path);
         let (prefix, subpath) = split_handler_path(&path);
-        if rust_handlers
+        let rust = rust_handlers
             .maybe_affect(
                 &prefix,
                 &PathBuf::from_slash(subpath),
                 &PathBuf::from_slash(&script.shadow_dir),
-            )
-            .is_none()
-        {
+            );
+        if let Some(rs) = rust {
+            let _ = rs?;
+        } else {
             call_handler_method(
                 &lua_handlers,
                 prefix,
