@@ -55,7 +55,6 @@ let module = {
       "https/akavel.github.io/0catalog/feeds/adb.xml" = "1702245477",
       "https/akavel.github.io/0catalog/feeds/symphytum.xml" = "1702245476",
       "http/0install.de/feeds/SevenZip_CLI.xml" = "1702245476",
-#"https/akavel.github.io/0catalog/feeds/cue.xml" = "1702245476",
     },
   },
 

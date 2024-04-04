@@ -83,6 +83,8 @@ impl callee::Handler for Handler {
             app: vec![raw::App {
                 interface: url.into(),
                 timestamp,
+                capabilities: None,
+                access_points: None,
             }],
         };
         let list_file = tempfile::NamedTempFile::new()?;
@@ -127,7 +129,7 @@ fn query_0install() -> Result<Handler> {
     let s = String::from_utf8_lossy(&stdout);
     //println!("{}", s); //.unwrap());
     let app_list = yaserde::de::from_str::<raw::AppList>(&s).unwrap();
-    //println!("{:?}", app_list); //.unwrap());
+    println!("{:?}", app_list); //.unwrap());
     let map: Result<BTreeMap<_, _>> = app_list
         .app
         .into_iter()
@@ -151,6 +153,7 @@ fn query_0install() -> Result<Handler> {
 
 mod raw {
     use yaserde::{YaDeserialize, YaSerialize};
+    use crate::xmlutil;
 
     #[derive(YaDeserialize, YaSerialize, Debug)]
     #[yaserde(
@@ -169,5 +172,9 @@ mod raw {
         pub interface: String,
         #[yaserde(attribute)]
         pub timestamp: u64,
+        #[yaserde(child)]
+        pub capabilities: Option<xmlutil::OpaqueXml>,
+        #[yaserde(child, rename = "access-points")]
+        pub access_points: Option<xmlutil::OpaqueXml>,
     }
 }
