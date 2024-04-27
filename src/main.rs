@@ -19,10 +19,9 @@ use mana2::manaprotocol::callee;
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
 struct Cli {
-    /// Path to a file containing a Nickel script to evaluate. If empty, a TOML file is loaded from
-    /// standard input instead.
-    #[arg(short, long)]
-    ncl: Option<PathBuf>,
+    /// Path to a file containing a Nickel script to evaluate.
+    #[arg(short, long, default_value="mana.ncl")]
+    ncl: PathBuf,
 
     #[command(subcommand)]
     command: Command,
@@ -60,7 +59,7 @@ fn main() -> Result<()> {
     // TODO[LATER]: licensing information in --license flag
 }
 
-fn query(ncl: Option<PathBuf>) -> Result<()> {
+fn query(ncl: PathBuf) -> Result<()> {
     let script = parse_input(ncl)?;
 
     // open git repo and check if it's clean
@@ -183,7 +182,7 @@ fn query(ncl: Option<PathBuf>) -> Result<()> {
     Ok(())
 }
 
-fn draft(ncl: Option<PathBuf>) -> Result<()> {
+fn draft(ncl: PathBuf) -> Result<()> {
     let script = parse_input(ncl)?;
 
     // Make a list of paths in git
@@ -232,7 +231,7 @@ fn draft(ncl: Option<PathBuf>) -> Result<()> {
     Ok(())
 }
 
-fn apply(ncl: Option<PathBuf>) -> Result<()> {
+fn apply(ncl: PathBuf) -> Result<()> {
     let script = parse_input(ncl)?;
 
     // open repo and verify it has no pending operation
@@ -318,18 +317,7 @@ fn apply(ncl: Option<PathBuf>) -> Result<()> {
     Ok(())
 }
 
-fn parse_input(ncl: Option<PathBuf>) -> Result<Script> {
-    let Some(path) = ncl else {
-        // If no path to *.ncl file provided, read and parse TOML from
-        // stdin.
-        // TODO: would prefer to somehow do it in streamed way, maybe
-        let input = std::io::read_to_string(std::io::stdin()).context("failure reading stdin")?;
-        let mut toml = input
-            .parse::<toml::Table>()
-            .context("failed to parse stdin as TOML")?;
-        return parse_input_toml(&mut toml);
-    };
-
+fn parse_input(ncl_path: PathBuf) -> Result<Script> {
     let username = whoami::username();
     let hostname = whoami::hostname();
     let field_path_raw = format!("{username}@{hostname}");
@@ -341,7 +329,7 @@ fn parse_input(ncl: Option<PathBuf>) -> Result<Script> {
     let field_path = ident_quoted(&LocIdent::new(field_path_raw));
     // println!("FIELD: {field_path:?}");
     use std::io::stderr;
-    let mut prog = Prog::<CBNCache>::new_from_file(&path, stderr())?;
+    let mut prog = Prog::<CBNCache>::new_from_file(&ncl_path, stderr())?;
     let res_field = prog.parse_field_path(field_path.clone());
     let Ok(field) = res_field else {
         prog.report(res_field.unwrap_err(), ErrorFormat::Text);
@@ -351,7 +339,7 @@ fn parse_input(ncl: Option<PathBuf>) -> Result<Script> {
     let res_term = prog.eval_full_for_export();
     let Ok(term) = res_term else {
         prog.report(res_term.unwrap_err(), ErrorFormat::Text);
-        bail!("script {path:?} failed");
+        bail!("script {ncl_path:?} failed");
     };
     let mut toml = toml::Table::deserialize(term).context("loading Nickel output to TOML")?;
     parse_input_toml(&mut toml)
