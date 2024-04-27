@@ -11,7 +11,7 @@ use std::process::Command;
 use crate::manaprotocol::callee;
 
 pub struct Handler {
-    apps: BTreeMap<PathBuf, Timestamp>,
+    apps: BTreeMap<PathBuf, String>,
 }
 
 impl Handler {
@@ -26,8 +26,8 @@ impl callee::Handler for Handler {
     }
 
     fn gather(&mut self, path: &Path, shadow_prefix: &Path) -> Result<()> {
-        let t = self.apps.get(path).unwrap();
-        std::fs::write(shadow_prefix.join(path), format!("{t}"))?;
+        let s = self.apps.get(path).unwrap();
+        std::fs::write(shadow_prefix.join(path), s)?;
         Ok(())
     }
 
@@ -76,16 +76,16 @@ impl callee::Handler for Handler {
             }
         }
 
-        let timestamp: u64 = std::str::from_utf8(&maybe_content?)?.parse()?;
+        let content = maybe_content?;
+        let s = std::str::from_utf8(&content)?;
+        // TODO: use yaserde::de::from_reader
+        // FIXME: don't unwrap
+        let mut app = yaserde::de::from_str::<raw::App>(&s).unwrap();
 
         // Build XML with the app details for feeding into `0install`
+        app.interface = Some(url.into());
         let list = raw::AppList {
-            app: vec![raw::App {
-                interface: url.into(),
-                timestamp,
-                capabilities: None,
-                access_points: None,
-            }],
+            app: vec![app],
         };
         let list_file = tempfile::NamedTempFile::new()?;
         let rs = yaserde::ser::serialize_with_writer(&list, list_file, &Default::default());
@@ -133,8 +133,8 @@ fn query_0install() -> Result<Handler> {
     let map: Result<BTreeMap<_, _>> = app_list
         .app
         .into_iter()
-        .map(|app| {
-            let url = Url::parse(&app.interface)?;
+        .map(|mut app| {
+            let url = Url::parse(&app.interface.take().unwrap())?;
             // FIXME: ensure/sanitize/encode safe scheme, no username/password, no ipv6, no port, etc.
             let scheme = url.scheme().to_string();
             let host = url.host_str().unwrap().to_string();
@@ -144,7 +144,13 @@ fn query_0install() -> Result<Handler> {
                 .map(|s| Path::new(s).to_path_buf())
                 .collect();
             let disk_path = Path::new(&scheme).join(host).join(path);
-            Ok((disk_path, app.timestamp))
+            let cfg = yaserde::ser::Config{
+                perform_indent: true,
+                write_document_declaration: false,
+                indent_string: None, // presumably, will use a default (?)
+            };
+            let xml = yaserde::ser::to_string_with_config(&app, &cfg).unwrap();
+            Ok((disk_path, xml))
         })
         .collect();
     //println!("{map:?}");
@@ -169,7 +175,7 @@ mod raw {
     #[yaserde(rename = "app")]
     pub struct App {
         #[yaserde(attribute)]
-        pub interface: String,
+        pub interface: Option<String>,
         #[yaserde(attribute)]
         pub timestamp: u64,
         #[yaserde(child)]
