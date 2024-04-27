@@ -11,9 +11,9 @@ default-run = "mana"
 name = "mana"
 path = "src/main.rs"
 
-[[bin]]
-name = "exp"
-path = "src/exp-tmp.rs"
+#[[bin]]
+#name = "exp"
+#path = "src/exp-tmp.rs"
 
 #[[bin]]
 #name = "zeroinst"
