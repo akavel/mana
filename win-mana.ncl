@@ -52,9 +52,24 @@ let module = {
       AppData.Local.nvim."init.vim" = import "vimrc.txt",
     },
     zeroinstall = by-path {
-      "https/akavel.github.io/0catalog/feeds/adb.xml" = "1702245477",
-      "https/akavel.github.io/0catalog/feeds/symphytum.xml" = "1702245476",
-      "http/0install.de/feeds/SevenZip_CLI.xml" = "1702245476",
+      "https/akavel.github.io/0catalog/feeds/adb.xml" = zeroinst {
+        timestamp = "1702245477",
+        aliases = [
+          { name = "adb", command = "run" },
+        ],
+      },
+      "https/akavel.github.io/0catalog/feeds/symphytum.xml" = zeroinst {
+        timestamp = "1702245476",
+        menu-entries = [
+          { name = "Symphytum", command = "run", category = "Office" },
+        ],
+      },
+      "http/0install.de/feeds/SevenZip_CLI.xml" = zeroinst {
+        timestamp = "1702245476",
+        aliases = [
+          { name = "7za", command = "run" },
+        ],
+      },
     },
   },
 
@@ -123,6 +138,25 @@ let module = {
     endlocal
     "%%%%,
 
+  # TODO: typing
+  # TODO: support more features
+  zeroinst = fun app =>
+    let menu-entries = get-or app "menu-entries" []
+      |> std.array.map (fun x =>
+        "<menu-entry name=\"%{x.name}\" command=\"%{x.command}\" category=\"%{x.category}/%{x.name}\" />") in
+    let aliases = get-or app "aliases" []
+      |> std.array.map (fun x =>
+        "<alias name=\"%{x.name}\" command=\"%{x.command}\" />") in
+    let body = ["<capability-registration />"] @ menu-entries @ aliases
+        |> std.string.join "\n"
+    in m%"
+      <app timestamp="%{ app.timestamp }">
+        <access-points xmlns="http://0install.de/schema/desktop-integration/app-list" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+          %{body}
+        </access-points>
+      </app>
+    "%,
+
   by-path = fun record-with-paths => record-with-paths
     |> std.record.to_array  # [{field=..., value=...}...]
     |> std.array.map (fun {field, value} => field |> std.string.split "/" |> put-deep value)
@@ -130,6 +164,11 @@ let module = {
 
   put-deep = fun value path =>
     path |> std.array.fold_right (fun it acc => std.record.insert it acc {}) value,
+
+  get-or = fun record field-name fallback =>
+    if std.record.has_field field-name record
+      then record."%{field-name}"
+      else fallback,
 
 } in
 module.main
