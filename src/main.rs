@@ -13,7 +13,7 @@ use toml::macros::Deserialize;
 use path_slash::PathBufExt as _;
 use unicase::UniCase;
 
-use mana2::handler::zeroinstall;
+use mana2::handler::{winfeat, zeroinstall};
 use mana2::manaprotocol::callee;
 
 #[derive(Parser)]
@@ -92,6 +92,11 @@ fn query(ncl: PathBuf) -> Result<()> {
                 rust_handlers
                     .map
                     .insert(root, Box::new(zeroinstall::Handler::new()?));
+            }
+            [s] if s == "winfeat" => {
+                rust_handlers
+                    .map
+                    .insert(root, Box::new(winfeat::Handler::new()?));
             }
             _ => {
                 bail!("unknown handler command: {cmd:?}");
