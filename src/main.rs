@@ -60,20 +60,23 @@ fn main() -> Result<()> {
     // TODO[LATER]: licensing information in --license flag
 }
 
-fn query(script: Script) -> Result<()> {
-    // open git repo and check if it's clean
+// open repo and verify it has no pending operation
+fn open_shadow_repo(script: &Script) -> Result<Repository> {
     let repo = Repository::open(&script.shadow_dir).context("failure opening 'shadow_dir'")?;
+    if repo.state() != git2::RepositoryState::Clean {
+        bail!(
+            "git 'shadow_dir' repository has pending unfinished operation {:?}",
+            repo.state()
+        );
+    }
+    Ok(repo)
+}
+
+fn query(script: Script) -> Result<()> {
+    let repo = open_shadow_repo(&script)?;
     // check if repo is clean
-    {
-        if repo.state() != git2::RepositoryState::Clean {
-            bail!(
-                "git 'shadow_dir' repository has pending unfinished operation {:?}",
-                repo.state()
-            );
-        }
-        if !check_git_statuses_empty(&repo)? {
-            bail!("git 'shadow_dir' repository is not clean (see: git status)");
-        }
+    if !check_git_statuses_empty(&repo)? {
+        bail!("git 'shadow_dir' repository is not clean (see: git status)");
     }
 
     // Initialize handlers
@@ -183,7 +186,7 @@ fn query(script: Script) -> Result<()> {
 
 fn draft(script: Script) -> Result<()> {
     // Make a list of paths in git
-    let repo = Repository::open(&script.shadow_dir).context("failure opening 'shadow_dir'")?;
+    let repo = open_shadow_repo(&script)?;
     let head = repo.head()?;
     let head_tree = head.peel_to_tree()?;
     // TODO: unicode normaliz.: https://stackoverflow.com/q/47813162/#comment82595250_47813878
@@ -229,14 +232,7 @@ fn draft(script: Script) -> Result<()> {
 }
 
 fn apply(script: Script) -> Result<()> {
-    // open repo and verify it has no pending operation
-    let repo = Repository::open(&script.shadow_dir).context("failure opening 'shadow_dir'")?;
-    if repo.state() != git2::RepositoryState::Clean {
-        bail!(
-            "git 'shadow_dir' repository has pending unfinished operation {:?}",
-            repo.state()
-        );
-    }
+    let repo = open_shadow_repo(&script)?;
 
     // Initialize handlers
     let lua = Lua::new();
