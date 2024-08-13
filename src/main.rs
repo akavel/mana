@@ -19,7 +19,7 @@ use mana2::script::Script;
 #[command(author, version, about, long_about = None)]
 struct Cli {
     /// Path to a file containing a Nickel script to evaluate.
-    #[arg(short, long, default_value="mana.ncl")]
+    #[arg(short, long, default_value = "mana.ncl")]
     ncl: PathBuf,
 
     /// Turn debugging information on.
@@ -49,7 +49,6 @@ fn main() -> Result<()> {
     // TODO: query: real world -> git; then compare/diff by hand
     // TODO: draft: Nickel -> git; then compare/diff by hand
     // TODO: apply: git -> real world, + git add each successful
-
 
     let cli = Cli::parse();
 
@@ -267,5 +266,3 @@ fn split_handler_path(path: &str) -> (&str, &str) {
     let (_slash, end) = rest.split_at(1);
     return (start, end);
 }
-
-

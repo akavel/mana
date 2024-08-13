@@ -18,15 +18,15 @@ impl YaDeserialize for OpaqueXml {
             let depth = reader.depth();
             let peek = reader.peek()?;
             match peek {
-                EndElement{..} if depth == start_depth+1 => {
+                EndElement { .. } if depth == start_depth + 1 => {
                     events.push(peek.clone());
                     break;
-                },
-                _ => {},
+                }
+                _ => {}
             }
             events.push(reader.next_event()?);
         }
-        Ok(Self{events})
+        Ok(Self { events })
     }
 }
 

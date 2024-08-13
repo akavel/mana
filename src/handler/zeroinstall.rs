@@ -85,9 +85,7 @@ impl callee::Handler for Handler {
 
         // Build XML with the app details for feeding into `0install`
         app.interface = Some(url.into());
-        let list = raw::AppList {
-            app: vec![app],
-        };
+        let list = raw::AppList { app: vec![app] };
         let list_file = tempfile::NamedTempFile::new()?;
         let rs = yaserde::ser::serialize_with_writer(&list, list_file, &Default::default());
         let Ok(list_file) = rs else {
@@ -143,7 +141,7 @@ fn query_0install() -> Result<Handler> {
                 .map(|s| Path::new(s).to_path_buf())
                 .collect();
             let disk_path = Path::new(&scheme).join(host).join(path);
-            let cfg = yaserde::ser::Config{
+            let cfg = yaserde::ser::Config {
                 perform_indent: true,
                 write_document_declaration: false,
                 indent_string: None, // presumably, will use a default (?)
@@ -157,8 +155,8 @@ fn query_0install() -> Result<Handler> {
 }
 
 mod raw {
-    use yaserde::{YaDeserialize, YaSerialize};
     use crate::xmlutil;
+    use yaserde::{YaDeserialize, YaSerialize};
 
     #[derive(YaDeserialize, YaSerialize, Debug)]
     #[yaserde(

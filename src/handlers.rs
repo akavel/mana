@@ -10,7 +10,6 @@ use crate::handler::zeroinstall;
 use crate::manaprotocol::callee;
 use crate::script::Handlers as Spec;
 
-
 pub struct Handlers<'lua> {
     lua: LuaTable<'lua>,
     rust: RustHandlers,
@@ -37,11 +36,17 @@ impl<'lua> Handlers<'lua> {
                 }
             }
         }
-        Ok(Self{lua: lua_handlers, rust: rust_handlers})
+        Ok(Self {
+            lua: lua_handlers,
+            rust: rust_handlers,
+        })
     }
 
     pub fn detect(&mut self, prefix: &str, subpath: &str) -> Result<bool> {
-        if let Some(r) = self.rust.maybe_detect(&prefix, &PathBuf::from_slash(subpath)) {
+        if let Some(r) = self
+            .rust
+            .maybe_detect(&prefix, &PathBuf::from_slash(subpath))
+        {
             r
         } else {
             call_handler_method(&self.lua, prefix, "exists", subpath)
@@ -50,12 +55,11 @@ impl<'lua> Handlers<'lua> {
     }
 
     pub fn gather(&mut self, prefix: &str, subpath: &str, shadow_root: &str) -> Result<()> {
-        let rust_result = self.rust
-            .maybe_gather(
-                &prefix,
-                &PathBuf::from_slash(subpath),
-                &PathBuf::from_slash(&shadow_root),
-            );
+        let rust_result = self.rust.maybe_gather(
+            &prefix,
+            &PathBuf::from_slash(subpath),
+            &PathBuf::from_slash(&shadow_root),
+        );
         if let Some(rs) = rust_result {
             rs
         } else {
@@ -94,7 +98,6 @@ impl<'lua> Handlers<'lua> {
         }
     }
 }
-
 
 #[derive(Error, Debug)]
 enum InitHandlerError {
@@ -156,7 +159,6 @@ fn call_handler_method<'a, V: mlua::FromLuaMulti<'a>>(
     let res: V = f.call(args)?;
     Ok(res)
 }
-
 
 struct RustHandlers {
     map: BTreeMap<String, Box<dyn callee::Handler>>,
