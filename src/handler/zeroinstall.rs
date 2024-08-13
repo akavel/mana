@@ -56,7 +56,7 @@ impl callee::Handler for Handler {
         };
 
         // Try reading shadow file.
-        let maybe_content = std::fs::read(&shadow_path);
+        let maybe_content = std::fs::read(shadow_path);
 
         // Handle file-not-found scenario - remove app from 0install
         // TODO: merge two ifs once let-chains are stabilized
@@ -81,7 +81,7 @@ impl callee::Handler for Handler {
         let s = std::str::from_utf8(&content)?;
         // TODO: use yaserde::de::from_reader
         // FIXME: don't unwrap
-        let mut app = yaserde::de::from_str::<raw::App>(&s).unwrap();
+        let mut app = yaserde::de::from_str::<raw::App>(s).unwrap();
 
         // Build XML with the app details for feeding into `0install`
         app.interface = Some(url.into());

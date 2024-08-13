@@ -22,7 +22,7 @@ impl<'lua> Handlers<'lua> {
             map: BTreeMap::new(),
         };
         for (root, cmd) in spec {
-            if let Ok(_) = init_lua_handler(&lua, &lua_handlers, root.clone(), cmd.clone()) {
+            if init_lua_handler(lua, &lua_handlers, root.clone(), cmd.clone()).is_ok() {
                 continue;
             }
             match &cmd[..] {
@@ -45,7 +45,7 @@ impl<'lua> Handlers<'lua> {
     pub fn detect(&mut self, prefix: &str, subpath: &str) -> Result<bool> {
         if let Some(r) = self
             .rust
-            .maybe_detect(&prefix, &PathBuf::from_slash(subpath))
+            .maybe_detect(prefix, &PathBuf::from_slash(subpath))
         {
             r
         } else {
@@ -56,16 +56,16 @@ impl<'lua> Handlers<'lua> {
 
     pub fn gather(&mut self, prefix: &str, subpath: &str, shadow_root: &str) -> Result<()> {
         let rust_result = self.rust.maybe_gather(
-            &prefix,
+            prefix,
             &PathBuf::from_slash(subpath),
-            &PathBuf::from_slash(&shadow_root),
+            &PathBuf::from_slash(shadow_root),
         );
         if let Some(rs) = rust_result {
             rs
         } else {
             let shadow_path = PathBuf::from(&shadow_root)
-                .join(&prefix)
-                .join(PathBuf::from_slash(&subpath));
+                .join(prefix)
+                .join(PathBuf::from_slash(subpath));
             call_handler_method(
                 &self.lua,
                 prefix,
@@ -78,16 +78,16 @@ impl<'lua> Handlers<'lua> {
 
     pub fn affect(&mut self, prefix: &str, subpath: &str, shadow_root: &str) -> Result<()> {
         let rust_result = self.rust.maybe_affect(
-            &prefix,
+            prefix,
             &PathBuf::from_slash(subpath),
-            &PathBuf::from_slash(&shadow_root),
+            &PathBuf::from_slash(shadow_root),
         );
         if let Some(rs) = rust_result {
             rs
         } else {
             let shadow_path = PathBuf::from(&shadow_root)
-                .join(&prefix)
-                .join(PathBuf::from_slash(&subpath));
+                .join(prefix)
+                .join(PathBuf::from_slash(subpath));
             call_handler_method(
                 &self.lua,
                 prefix,
@@ -127,7 +127,7 @@ fn init_lua_handler(lua: &Lua, dst: &LuaTable, root: String, cmd: Vec<String>) -
         if let LuaValue::Function(ref f) = init {
             let args = cmd[2..]
                 .iter()
-                .map(|v| v.clone().into_lua(&lua).unwrap())
+                .map(|v| v.clone().into_lua(lua).unwrap())
                 .collect::<LuaMultiValue>();
             let ret = f.call(args).with_context(|| {
                 format!("calling 'init({:?})' on handler for {root:?}", &cmd[2..])
@@ -166,7 +166,7 @@ struct RustHandlers {
 
 impl RustHandlers {
     fn maybe_detect(&mut self, prefix: &str, subpath: &Path) -> Option<Result<bool>> {
-        self.map.get_mut(prefix).map(|h| h.detect(&subpath))
+        self.map.get_mut(prefix).map(|h| h.detect(subpath))
     }
 
     fn maybe_gather(
@@ -177,7 +177,7 @@ impl RustHandlers {
     ) -> Option<Result<()>> {
         self.map
             .get_mut(prefix)
-            .map(|h| h.gather(&subpath, &shadow_root.join(prefix)))
+            .map(|h| h.gather(subpath, &shadow_root.join(prefix)))
     }
 
     fn maybe_affect(
@@ -188,6 +188,6 @@ impl RustHandlers {
     ) -> Option<Result<()>> {
         self.map
             .get_mut(prefix)
-            .map(|h| h.affect(&subpath, &shadow_root.join(prefix)))
+            .map(|h| h.affect(subpath, &shadow_root.join(prefix)))
     }
 }

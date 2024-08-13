@@ -129,17 +129,17 @@ fn query(script: Script) -> Result<()> {
     // Run 'query' on appropriate handlers for all listed paths, fetching files into the git workspace
     let dir = Dir::open_ambient_dir(&script.shadow_dir, ambient_authority())?;
     for path in &paths {
-        if let Some(parent) = parent_dir(&PathBuf::from_slash(&path)) {
+        if let Some(parent) = parent_dir(&PathBuf::from_slash(path)) {
             dir.create_dir_all(parent).context("in shadow_dir")?;
         }
-        let (prefix, subpath) = split_handler_path(&path);
+        let (prefix, subpath) = split_handler_path(path);
         let found = handlers.detect(prefix, subpath)?;
         let shadow_path = PathBuf::from(&script.shadow_dir).join(PathBuf::from_slash(path));
         if !found {
             std::fs::remove_file(shadow_path)?;
             continue;
         }
-        handlers.gather(&prefix, &subpath, &script.shadow_dir)?;
+        handlers.gather(prefix, subpath, &script.shadow_dir)?;
     }
 
     // Two-way compare: current git <-> results of handlers.query
@@ -224,8 +224,8 @@ fn apply(script: Script) -> Result<()> {
             );
         };
         let os_rel_path = PathBuf::from_slash(path);
-        let (prefix, subpath) = split_handler_path(&path);
-        handlers.affect(&prefix, &subpath, &script.shadow_dir)?;
+        let (prefix, subpath) = split_handler_path(path);
+        handlers.affect(prefix, subpath, &script.shadow_dir)?;
         use git2::Status;
         match stat.status() {
             Status::WT_NEW | Status::WT_MODIFIED => {
@@ -234,7 +234,7 @@ fn apply(script: Script) -> Result<()> {
             Status::WT_DELETED => {
                 git_index.remove_path(&os_rel_path)?;
             }
-            s @ _ => {
+            s => {
                 bail!("unsupported git status {s:?} for path {path:?} in 'shadow_dir'");
             }
         }
@@ -264,5 +264,5 @@ fn split_handler_path(path: &str) -> (&str, &str) {
     };
     let (start, rest) = path.split_at(idx);
     let (_slash, end) = rest.split_at(1);
-    return (start, end);
+    (start, end)
 }
