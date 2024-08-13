@@ -55,8 +55,9 @@ impl<'lua> Handlers<'lua> {
                 &PathBuf::from_slash(subpath),
                 &PathBuf::from_slash(&shadow_root),
             );
-        // FIXME: return error if gotten above
-        if rust_result.is_none() {
+        if let Some(rs) = rust_result {
+            rs
+        } else {
             let shadow_path = PathBuf::from(&shadow_root)
                 .join(&prefix)
                 .join(PathBuf::from_slash(&subpath));
@@ -66,19 +67,18 @@ impl<'lua> Handlers<'lua> {
                 "query",
                 (subpath, shadow_path.to_str().unwrap()),
             )
-            .with_context(|| format!("calling handlers[{prefix:?}]:query({subpath:?})"))?;
+            .with_context(|| format!("calling handlers[{prefix:?}]:query({subpath:?})"))
         }
-        Ok(())
     }
 
     pub fn affect(&mut self, prefix: &str, subpath: &str, shadow_root: &str) -> Result<()> {
-        let rust = self.rust.maybe_affect(
+        let rust_result = self.rust.maybe_affect(
             &prefix,
             &PathBuf::from_slash(subpath),
             &PathBuf::from_slash(&shadow_root),
         );
-        if let Some(rs) = rust {
-            let _ = rs?;
+        if let Some(rs) = rust_result {
+            rs
         } else {
             let shadow_path = PathBuf::from(&shadow_root)
                 .join(&prefix)
@@ -89,9 +89,8 @@ impl<'lua> Handlers<'lua> {
                 "apply",
                 (subpath, shadow_path.to_str().unwrap()),
             )
-            .with_context(|| format!("calling handlers[{prefix:?}]:apply({subpath:?})"))?;
-        };
-        Ok(())
+            .with_context(|| format!("calling handlers[{prefix:?}]:apply({subpath:?})"))
+        }
     }
 }
 
