@@ -50,18 +50,17 @@ fn main() -> Result<()> {
     println!("Hello, world!");
 
     let cli = Cli::parse();
+    let script = Script::parse_ncl_file(cli.ncl)?;
     match &cli.command {
-        Command::Query => query(cli.ncl),
-        Command::Draft => draft(cli.ncl),
-        Command::Apply => apply(cli.ncl),
+        Command::Query => query(script),
+        Command::Draft => draft(script),
+        Command::Apply => apply(script),
     }
 
     // TODO[LATER]: licensing information in --license flag
 }
 
-fn query(ncl: PathBuf) -> Result<()> {
-    let script = Script::parse_ncl_file(ncl)?;
-
+fn query(script: Script) -> Result<()> {
     // open git repo and check if it's clean
     let repo = Repository::open(&script.shadow_dir).context("failure opening 'shadow_dir'")?;
     // check if repo is clean
@@ -182,9 +181,7 @@ fn query(ncl: PathBuf) -> Result<()> {
     Ok(())
 }
 
-fn draft(ncl: PathBuf) -> Result<()> {
-    let script = Script::parse_ncl_file(ncl)?;
-
+fn draft(script: Script) -> Result<()> {
     // Make a list of paths in git
     let repo = Repository::open(&script.shadow_dir).context("failure opening 'shadow_dir'")?;
     let head = repo.head()?;
@@ -231,9 +228,7 @@ fn draft(ncl: PathBuf) -> Result<()> {
     Ok(())
 }
 
-fn apply(ncl: PathBuf) -> Result<()> {
-    let script = Script::parse_ncl_file(ncl)?;
-
+fn apply(script: Script) -> Result<()> {
     // open repo and verify it has no pending operation
     let repo = Repository::open(&script.shadow_dir).context("failure opening 'shadow_dir'")?;
     if repo.state() != git2::RepositoryState::Clean {
