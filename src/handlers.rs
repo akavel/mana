@@ -1,5 +1,6 @@
 use anyhow::{bail, Context, Result};
 use mlua::prelude::{IntoLua, Lua, LuaMultiValue, LuaTable, LuaValue};
+use path_slash::PathBufExt as _;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use thiserror::Error;
@@ -36,6 +37,61 @@ impl<'lua> Handlers<'lua> {
             }
         }
         Ok(Self{lua: lua_handlers, rust: rust_handlers})
+    }
+
+    pub fn detect(&mut self, prefix: &str, subpath: &str) -> Result<bool> {
+        if let Some(r) = self.rust.maybe_detect(&prefix, &PathBuf::from_slash(subpath)) {
+            r
+        } else {
+            call_handler_method(&self.lua, prefix, "exists", subpath)
+                .with_context(|| format!("calling handlers[{prefix:?}]:exists({subpath:?})"))
+        }
+    }
+
+    pub fn gather(&mut self, prefix: &str, subpath: &str, shadow_root: &str) -> Result<()> {
+        let rust_result = self.rust
+            .maybe_gather(
+                &prefix,
+                &PathBuf::from_slash(subpath),
+                &PathBuf::from_slash(&shadow_root),
+            );
+        // FIXME: return error if gotten above
+        if rust_result.is_none() {
+            let shadow_path = PathBuf::from(&shadow_root)
+                .join(&prefix)
+                .join(PathBuf::from_slash(&subpath));
+            call_handler_method(
+                &self.lua,
+                prefix,
+                "query",
+                (subpath, shadow_path.to_str().unwrap()),
+            )
+            .with_context(|| format!("calling handlers[{prefix:?}]:query({subpath:?})"))?;
+        }
+        Ok(())
+    }
+
+    pub fn affect(&mut self, prefix: &str, subpath: &str, shadow_root: &str) -> Result<()> {
+        let rust = self.rust.maybe_affect(
+            &prefix,
+            &PathBuf::from_slash(subpath),
+            &PathBuf::from_slash(&shadow_root),
+        );
+        if let Some(rs) = rust {
+            let _ = rs?;
+        } else {
+            let shadow_path = PathBuf::from(&shadow_root)
+                .join(&prefix)
+                .join(PathBuf::from_slash(&subpath));
+            call_handler_method(
+                &self.lua,
+                prefix,
+                "apply",
+                (subpath, shadow_path.to_str().unwrap()),
+            )
+            .with_context(|| format!("calling handlers[{prefix:?}]:apply({subpath:?})"))?;
+        };
+        Ok(())
     }
 }
 
@@ -81,6 +137,24 @@ fn init_lua_handler(lua: &Lua, dst: &LuaTable, root: String, cmd: Vec<String>) -
     }
     dst.set(root.as_str(), v).unwrap();
     Ok(())
+}
+
+fn call_handler_method<'a, V: mlua::FromLuaMulti<'a>>(
+    handlers: &LuaTable<'a>,
+    prefix: &str,
+    method: &str,
+    args: impl mlua::IntoLuaMulti<'a>,
+) -> Result<V> {
+    let handler: LuaValue = handlers.get(prefix).unwrap();
+    let LuaValue::Table(ref t) = handler else {
+        bail!("expected Lua handler for {prefix:?} to be a table, but got: {handler:?}");
+    };
+    let method_val: LuaValue = t.get(method).unwrap();
+    let LuaValue::Function(ref f) = method_val else {
+        bail!("expected '{method}' in Lua handler for {prefix:?} to be a function, but got: {method_val:?}");
+    };
+    let res: V = f.call(args)?;
+    Ok(res)
 }
 
 

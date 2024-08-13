@@ -124,35 +124,13 @@ fn query(script: Script) -> Result<()> {
             dir.create_dir_all(parent).context("in shadow_dir")?;
         }
         let (prefix, subpath) = split_handler_path(&path);
-        let found: bool =
-            if let Some(r) = handlers.rust.maybe_detect(&prefix, &PathBuf::from_slash(subpath)) {
-                r?
-            } else {
-                call_handler_method(&handlers.lua, prefix, "exists", subpath)
-                    .with_context(|| format!("calling handlers[{prefix:?}]:exists({subpath:?})"))?
-            };
-        // println!(" . {prefix:?} {subpath:?} {found:?}");
+        let found = handlers.detect(prefix, subpath)?;
         let shadow_path = PathBuf::from(&script.shadow_dir).join(PathBuf::from_slash(path));
         if !found {
             std::fs::remove_file(shadow_path);
             continue;
         }
-        if handlers.rust
-            .maybe_gather(
-                &prefix,
-                &PathBuf::from_slash(subpath),
-                &PathBuf::from_slash(&script.shadow_dir),
-            )
-            .is_none()
-        {
-            call_handler_method(
-                &handlers.lua,
-                prefix,
-                "query",
-                (subpath, shadow_path.to_str().unwrap()),
-            )
-            .with_context(|| format!("calling handlers[{prefix:?}]:query({subpath:?})"))?;
-        };
+        handlers.gather(&prefix, &subpath, &script.shadow_dir)?;
     }
 
     // Two-way compare: current git <-> results of handlers.query
@@ -239,22 +217,7 @@ fn apply(script: Script) -> Result<()> {
         let os_rel_path = PathBuf::from_slash(path);
         let shadow_path = PathBuf::from(&script.shadow_dir).join(&os_rel_path);
         let (prefix, subpath) = split_handler_path(&path);
-        let rust = handlers.rust.maybe_affect(
-            &prefix,
-            &PathBuf::from_slash(subpath),
-            &PathBuf::from_slash(&script.shadow_dir),
-        );
-        if let Some(rs) = rust {
-            let _ = rs?;
-        } else {
-            call_handler_method(
-                &handlers.lua,
-                prefix,
-                "apply",
-                (subpath, shadow_path.to_str().unwrap()),
-            )
-            .with_context(|| format!("calling handlers[{prefix:?}]:apply({subpath:?})"))?;
-        }
+        handlers.affect(&prefix, &subpath, &script.shadow_dir)?;
         use git2::Status;
         match stat.status() {
             Status::WT_NEW | Status::WT_MODIFIED => {
@@ -297,20 +260,3 @@ fn split_handler_path(path: &str) -> (&str, &str) {
 }
 
 
-fn call_handler_method<'a, V: mlua::FromLuaMulti<'a>>(
-    handlers: &LuaTable<'a>,
-    prefix: &str,
-    method: &str,
-    args: impl mlua::IntoLuaMulti<'a>,
-) -> Result<V> {
-    let handler: LuaValue = handlers.get(prefix).unwrap();
-    let LuaValue::Table(ref t) = handler else {
-        bail!("expected Lua handler for {prefix:?} to be a table, but got: {handler:?}");
-    };
-    let method_val: LuaValue = t.get(method).unwrap();
-    let LuaValue::Function(ref f) = method_val else {
-        bail!("expected '{method}' in Lua handler for {prefix:?} to be a function, but got: {method_val:?}");
-    };
-    let res: V = f.call(args)?;
-    Ok(res)
-}
