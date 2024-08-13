@@ -1,4 +1,4 @@
-use anyhow::{bail, Context, Result};
+use anyhow::{bail, Result};
 use itertools::Itertools;
 use log::debug;
 use path_slash::PathBufExt as _;
@@ -115,8 +115,6 @@ impl callee::Handler for Handler {
         Ok(())
     }
 }
-
-type Timestamp = u64;
 
 fn query_0install() -> Result<Handler> {
     // TODO[LATER]: streaming read & parse

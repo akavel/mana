@@ -43,8 +43,8 @@ impl YaSerialize for OpaqueXml {
 
     fn serialize_attributes(
         &self,
-        source_attributes: Vec<xml::attribute::OwnedAttribute>,
-        source_namespace: xml::namespace::Namespace,
+        _source_attributes: Vec<xml::attribute::OwnedAttribute>,
+        _source_namespace: xml::namespace::Namespace,
     ) -> Result<
         (
             Vec<xml::attribute::OwnedAttribute>,

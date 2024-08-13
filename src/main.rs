@@ -5,17 +5,14 @@ use clap::{Parser, Subcommand};
 use git2::Repository;
 use log::debug;
 // mlua::prelude::* except ErrorContext; TODO: can we do simpler?
-use mlua::prelude::{IntoLua, Lua, LuaMultiValue, LuaTable, LuaValue};
-use std::collections::{BTreeMap, BTreeSet};
+use mlua::prelude::Lua;
+use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
-use thiserror::Error;
 // Trait for extending std::path::PathBuf
 use path_slash::PathBufExt as _;
 use unicase::UniCase;
 
-use mana2::handler::zeroinstall;
 use mana2::handlers::Handlers;
-use mana2::manaprotocol::callee;
 use mana2::script::Script;
 
 #[derive(Parser)]
@@ -140,7 +137,7 @@ fn query(script: Script) -> Result<()> {
         let found = handlers.detect(prefix, subpath)?;
         let shadow_path = PathBuf::from(&script.shadow_dir).join(PathBuf::from_slash(path));
         if !found {
-            std::fs::remove_file(shadow_path);
+            std::fs::remove_file(shadow_path)?;
             continue;
         }
         handlers.gather(&prefix, &subpath, &script.shadow_dir)?;
@@ -197,7 +194,7 @@ fn draft(script: Script) -> Result<()> {
 
     // Delete files found on disk but not found in script
     for path in &paths {
-        dir.remove_file(path);
+        dir.remove_file(path)?;
     }
 
     // TODO[LATER]: add support for binary files, maybe somehow
@@ -228,7 +225,6 @@ fn apply(script: Script) -> Result<()> {
             );
         };
         let os_rel_path = PathBuf::from_slash(path);
-        let shadow_path = PathBuf::from(&script.shadow_dir).join(&os_rel_path);
         let (prefix, subpath) = split_handler_path(&path);
         handlers.affect(&prefix, &subpath, &script.shadow_dir)?;
         use git2::Status;
