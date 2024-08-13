@@ -11,8 +11,8 @@ use crate::script::Handlers as Spec;
 
 
 pub struct Handlers<'lua> {
-    pub lua: LuaTable<'lua>,
-    pub rust: RustHandlers,
+    lua: LuaTable<'lua>,
+    rust: RustHandlers,
 }
 
 impl<'lua> Handlers<'lua> {
@@ -157,16 +157,16 @@ fn call_handler_method<'a, V: mlua::FromLuaMulti<'a>>(
 }
 
 
-pub struct RustHandlers {
+struct RustHandlers {
     map: BTreeMap<String, Box<dyn callee::Handler>>,
 }
 
 impl RustHandlers {
-    pub fn maybe_detect(&mut self, prefix: &str, subpath: &Path) -> Option<Result<bool>> {
+    fn maybe_detect(&mut self, prefix: &str, subpath: &Path) -> Option<Result<bool>> {
         self.map.get_mut(prefix).map(|h| h.detect(&subpath))
     }
 
-    pub fn maybe_gather(
+    fn maybe_gather(
         &mut self,
         prefix: &str,
         subpath: &Path,
@@ -177,7 +177,7 @@ impl RustHandlers {
             .map(|h| h.gather(&subpath, &shadow_root.join(prefix)))
     }
 
-    pub fn maybe_affect(
+    fn maybe_affect(
         &mut self,
         prefix: &str,
         subpath: &Path,
