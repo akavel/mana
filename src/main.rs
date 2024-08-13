@@ -13,7 +13,7 @@ use path_slash::PathBufExt as _;
 use unicase::UniCase;
 
 use mana2::handler::zeroinstall;
-use mana2::handlers;
+use mana2::handlers::Handlers;
 use mana2::manaprotocol::callee;
 use mana2::script::Script;
 
@@ -82,7 +82,7 @@ fn query(script: Script) -> Result<()> {
 
     // Initialize handlers
     let lua = Lua::new();
-    let mut handlers = handlers::init(&lua, &script.handlers)?;
+    let mut handlers = Handlers::init(&lua, &script.handlers)?;
 
     // Make a list of paths in 'tree' and in git
     let head = repo.head()?;
@@ -219,7 +219,7 @@ fn apply(script: Script) -> Result<()> {
 
     // Initialize handlers
     let lua = Lua::new();
-    let mut handlers = handlers::init(&lua, &script.handlers)?;
+    let mut handlers = Handlers::init(&lua, &script.handlers)?;
 
     // iterate modified files in repo, incl. untracked
     // TODO: also iterate unmodified?

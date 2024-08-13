@@ -14,27 +14,29 @@ pub struct Handlers<'lua> {
     pub rust: RustHandlers,
 }
 
-pub fn init<'lua>(lua: &'lua Lua, spec: &Spec) -> Result<Handlers<'lua>> {
-    let lua_handlers = lua.create_table().unwrap();
-    let mut rust_handlers = RustHandlers {
-        map: BTreeMap::new(),
-    };
-    for (root, cmd) in spec {
-        if let Ok(_) = init_lua_handler(&lua, &lua_handlers, root.clone(), cmd.clone()) {
-            continue;
-        }
-        match &cmd[..] {
-            [s] if s == "zeroinstall" => {
-                rust_handlers
-                    .map
-                    .insert(root.clone(), Box::new(zeroinstall::Handler::new()?));
+impl<'lua> Handlers<'lua> {
+    pub fn init(lua: &'lua Lua, spec: &Spec) -> Result<Handlers<'lua>> {
+        let lua_handlers = lua.create_table().unwrap();
+        let mut rust_handlers = RustHandlers {
+            map: BTreeMap::new(),
+        };
+        for (root, cmd) in spec {
+            if let Ok(_) = init_lua_handler(&lua, &lua_handlers, root.clone(), cmd.clone()) {
+                continue;
             }
-            _ => {
-                bail!("unknown handler command: {cmd:?}");
+            match &cmd[..] {
+                [s] if s == "zeroinstall" => {
+                    rust_handlers
+                        .map
+                        .insert(root.clone(), Box::new(zeroinstall::Handler::new()?));
+                }
+                _ => {
+                    bail!("unknown handler command: {cmd:?}");
+                }
             }
         }
+        Ok(Self{lua: lua_handlers, rust: rust_handlers})
     }
-    Ok(Handlers{lua: lua_handlers, rust: rust_handlers})
 }
 
 
