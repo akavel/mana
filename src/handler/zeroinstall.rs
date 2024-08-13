@@ -1,5 +1,6 @@
 use anyhow::{bail, Context, Result};
 use itertools::Itertools;
+use log::debug;
 use path_slash::PathBufExt as _;
 use url::Url;
 
@@ -96,7 +97,7 @@ impl callee::Handler for Handler {
 
         // Feed the XML into `0install` to install the app.
         let xml_path = list_file.into_temp_path();
-        println!("- 0install {path:?}...");
+        debug!("- 0install {path:?}...");
         let out = Command::new("0install")
             //.args(["import-apps", "--batch", "-o", &list_file.path().to_string_lossy()])
             .args(["import-apps", "--batch", &xml_path.to_string_lossy()])
@@ -129,7 +130,7 @@ fn query_0install() -> Result<Handler> {
     let s = String::from_utf8_lossy(&stdout);
     //println!("{}", s); //.unwrap());
     let app_list = yaserde::de::from_str::<raw::AppList>(&s).unwrap();
-    println!("{:?}", app_list); //.unwrap());
+    debug!("{:?}", app_list); //.unwrap());
     let map: Result<BTreeMap<_, _>> = app_list
         .app
         .into_iter()

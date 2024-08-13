@@ -62,7 +62,7 @@ end
 function winfs.copy(p1, p2)
   -- TODO: use rsync if possible
   local cmd = "copy /b /y " .. p1 .. " " .. p2 .. " >nul"
-  io.stderr:write('# ' .. cmd .. '\n')
+  --io.stderr:write('# ' .. cmd .. '\n')
   assert(os.execute(cmd))
 end
 

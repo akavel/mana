@@ -1,4 +1,5 @@
 use anyhow::{bail, Context, Result};
+use log::debug;
 use mlua::prelude::{IntoLua, Lua, LuaMultiValue, LuaTable, LuaValue};
 use path_slash::PathBufExt as _;
 use std::collections::BTreeMap;
@@ -119,7 +120,7 @@ fn init_lua_handler(lua: &Lua, dst: &LuaTable, root: String, cmd: Vec<String>) -
         bail!("Handler for {root:?} expected to return Lua table, but got: {v:?}");
     };
     if let Ok(init) = t.get::<&str, LuaValue>("init") {
-        println!("INIT for {root:?} = {init:?}");
+        debug!("INIT for {root:?} = {init:?}");
         if let LuaValue::Function(ref f) = init {
             let args = cmd[2..]
                 .iter()

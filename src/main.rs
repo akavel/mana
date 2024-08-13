@@ -3,6 +3,7 @@ use cap_std::ambient_authority;
 use cap_std::fs::Dir;
 use clap::{Parser, Subcommand};
 use git2::Repository;
+use log::debug;
 // mlua::prelude::* except ErrorContext; TODO: can we do simpler?
 use mlua::prelude::{IntoLua, Lua, LuaMultiValue, LuaTable, LuaValue};
 use std::collections::{BTreeMap, BTreeSet};
@@ -23,6 +24,10 @@ struct Cli {
     /// Path to a file containing a Nickel script to evaluate.
     #[arg(short, long, default_value="mana.ncl")]
     ncl: PathBuf,
+
+    /// Turn debugging information on.
+    #[arg(short, long, action = clap::ArgAction::Count)]
+    debug: u8,
 
     #[command(subcommand)]
     command: Command,
@@ -48,9 +53,17 @@ fn main() -> Result<()> {
     // TODO: draft: Nickel -> git; then compare/diff by hand
     // TODO: apply: git -> real world, + git add each successful
 
-    println!("Hello, world!");
 
     let cli = Cli::parse();
+
+    let log_level = match cli.debug {
+        0 => log::LevelFilter::Info,
+        1 => log::LevelFilter::Debug,
+        2.. => log::LevelFilter::Trace,
+    };
+    env_logger::Builder::new().filter_level(log_level).init();
+    debug!("Hello, world!");
+
     let script = Script::parse_ncl_file(cli.ncl)?;
     match &cli.command {
         Command::Query => query(script),
@@ -114,7 +127,7 @@ fn query(script: Script) -> Result<()> {
         paths.insert(path.clone());
     }
     for k in &paths {
-        println!(" - {k:?}");
+        debug!(" - {k:?}");
     }
 
     // Run 'query' on appropriate handlers for all listed paths, fetching files into the git workspace
@@ -171,7 +184,7 @@ fn draft(script: Script) -> Result<()> {
     // TODO[LATER]: allow case-sensitive check with an explicit CLI flag
     let dir = Dir::open_ambient_dir(script.shadow_dir, ambient_authority())?;
     for (path, contents) in script.paths {
-        println!(" - {path}");
+        debug!(" - {path}");
         // TODO[LATER]: try if things will "just work" on Windows without explicit from_slash conversions
         let os_path = PathBuf::from_slash(&path);
         if let Some(parent) = parent_dir(&os_path) {
@@ -207,7 +220,7 @@ fn apply(script: Script) -> Result<()> {
     stat_opt.recurse_untracked_dirs(true);
     // stat_opt.include_unmodified(true);
     for stat in &repo.statuses(Some(&mut stat_opt))? {
-        println!(" * {:?}", stat.path());
+        debug!(" * {:?}", stat.path());
         let Some(path) = stat.path() else {
             bail!(
                 "Path from 'git status' cannot be parsed as utf8: {:?}",

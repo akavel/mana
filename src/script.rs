@@ -1,4 +1,5 @@
 use anyhow::{bail, Context, Result};
+use log::debug;
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 use toml::macros::Deserialize;
@@ -53,7 +54,7 @@ impl Script {
         let toml::Value::String(shadow_dir) = shadow_dir else {
             bail!("Expected 'shadow_dir' to be text, got: {shadow_dir:?}");
         };
-        println!("SHAD: {shadow_dir:?}");
+        debug!("SHAD: {shadow_dir:?}");
 
         // Extract `handlers` from toml
         // TODO[LATER]: use serde instead to extract, maybe
@@ -82,7 +83,7 @@ impl Script {
             };
             handlers.insert(k, s.split_whitespace().map(str::to_string).collect());
         }
-        println!("HANDL: {handlers:?}");
+        debug!("HANDL: {handlers:?}");
 
         // Convert tree to paths map
         let mut paths = PathContentMap::new();
