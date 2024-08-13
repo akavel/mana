@@ -11,9 +11,9 @@ default-run = "mana"
 name = "mana"
 path = "src/main.rs"
 
-#[[bin]]
-#name = "exp"
-#path = "src/exp-tmp.rs"
+[[bin]]
+name = "exp"
+path = "src/exp-tmp.rs"
 
 #[[bin]]
 #name = "zeroinst"
@@ -38,4 +38,6 @@ url = "2.5.0"
 whoami = { version = "1.4.1", default-features = false }
 yaserde = { version = "0.10.0", features = ["yaserde_derive"] }
 xml-rs = "0.8.20"
+wmi = "0.13.3"
+serde = "1.0.199"
 
