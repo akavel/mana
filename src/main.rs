@@ -13,6 +13,7 @@ use path_slash::PathBufExt as _;
 use unicase::UniCase;
 
 use mana2::handler::zeroinstall;
+use mana2::handlers;
 use mana2::manaprotocol::callee;
 use mana2::script::Script;
 
@@ -81,25 +82,7 @@ fn query(script: Script) -> Result<()> {
 
     // Initialize handlers
     let lua = Lua::new();
-    let lua_handlers = lua.create_table().unwrap();
-    let mut rust_handlers = RustHandlers {
-        map: BTreeMap::new(),
-    };
-    for (root, cmd) in script.handlers {
-        if let Ok(_) = init_lua_handler(&lua, &lua_handlers, root.clone(), cmd.clone()) {
-            continue;
-        }
-        match &cmd[..] {
-            [s] if s == "zeroinstall" => {
-                rust_handlers
-                    .map
-                    .insert(root, Box::new(zeroinstall::Handler::new()?));
-            }
-            _ => {
-                bail!("unknown handler command: {cmd:?}");
-            }
-        }
-    }
+    let mut handlers = handlers::init(&lua, &script.handlers)?;
 
     // Make a list of paths in 'tree' and in git
     let head = repo.head()?;
@@ -142,10 +125,10 @@ fn query(script: Script) -> Result<()> {
         }
         let (prefix, subpath) = split_handler_path(&path);
         let found: bool =
-            if let Some(r) = rust_handlers.maybe_detect(&prefix, &PathBuf::from_slash(subpath)) {
+            if let Some(r) = handlers.rust.maybe_detect(&prefix, &PathBuf::from_slash(subpath)) {
                 r?
             } else {
-                call_handler_method(&lua_handlers, prefix, "exists", subpath)
+                call_handler_method(&handlers.lua, prefix, "exists", subpath)
                     .with_context(|| format!("calling handlers[{prefix:?}]:exists({subpath:?})"))?
             };
         // println!(" . {prefix:?} {subpath:?} {found:?}");
@@ -154,7 +137,7 @@ fn query(script: Script) -> Result<()> {
             std::fs::remove_file(shadow_path);
             continue;
         }
-        if rust_handlers
+        if handlers.rust
             .maybe_gather(
                 &prefix,
                 &PathBuf::from_slash(subpath),
@@ -163,7 +146,7 @@ fn query(script: Script) -> Result<()> {
             .is_none()
         {
             call_handler_method(
-                &lua_handlers,
+                &handlers.lua,
                 prefix,
                 "query",
                 (subpath, shadow_path.to_str().unwrap()),
@@ -236,25 +219,7 @@ fn apply(script: Script) -> Result<()> {
 
     // Initialize handlers
     let lua = Lua::new();
-    let lua_handlers = lua.create_table().unwrap();
-    let mut rust_handlers = RustHandlers {
-        map: BTreeMap::new(),
-    };
-    for (root, cmd) in script.handlers {
-        if let Ok(_) = init_lua_handler(&lua, &lua_handlers, root.clone(), cmd.clone()) {
-            continue;
-        }
-        match &cmd[..] {
-            [s] if s == "zeroinstall" => {
-                rust_handlers
-                    .map
-                    .insert(root, Box::new(zeroinstall::Handler::new()?));
-            }
-            _ => {
-                bail!("unknown handler command: {cmd:?}");
-            }
-        }
-    }
+    let mut handlers = handlers::init(&lua, &script.handlers)?;
 
     // iterate modified files in repo, incl. untracked
     // TODO: also iterate unmodified?
@@ -274,7 +239,7 @@ fn apply(script: Script) -> Result<()> {
         let os_rel_path = PathBuf::from_slash(path);
         let shadow_path = PathBuf::from(&script.shadow_dir).join(&os_rel_path);
         let (prefix, subpath) = split_handler_path(&path);
-        let rust = rust_handlers.maybe_affect(
+        let rust = handlers.rust.maybe_affect(
             &prefix,
             &PathBuf::from_slash(subpath),
             &PathBuf::from_slash(&script.shadow_dir),
@@ -283,7 +248,7 @@ fn apply(script: Script) -> Result<()> {
             let _ = rs?;
         } else {
             call_handler_method(
-                &lua_handlers,
+                &handlers.lua,
                 prefix,
                 "apply",
                 (subpath, shadow_path.to_str().unwrap()),
@@ -317,49 +282,6 @@ fn check_git_statuses_empty(repo: &Repository) -> Result<bool> {
     Ok(stat.is_empty())
 }
 
-#[derive(Error, Debug)]
-enum InitHandlerError {
-    #[error("not a Lua-based handler")]
-    NotLua,
-}
-
-fn init_lua_handler(lua: &Lua, dst: &LuaTable, root: String, cmd: Vec<String>) -> Result<()> {
-    if cmd.len() < 2 || cmd[0] != "lua53" {
-        return Err(anyhow::Error::new(InitHandlerError::NotLua));
-    }
-    //if cmd.len() < 2 {
-    //    bail!("Handler for {root:?} has too few elements - expected 2+, got: {cmd:?}");
-    //}
-    //if cmd[0] != "lua53" {
-    //    bail!("FIXME: currently handler[0] must be 'lua53'");
-    //}
-    let source = std::fs::read_to_string(&cmd[1])
-        .with_context(|| format!("reading Lua script for handler for {root:?}"))?;
-    // TODO: eval and load returned module - must refactor scripts first
-    let mut v = lua.load(source).set_name(&cmd[1]).eval::<LuaValue>()?;
-    let LuaValue::Table(ref t) = v else {
-        bail!("Handler for {root:?} expected to return Lua table, but got: {v:?}");
-    };
-    if let Ok(init) = t.get::<&str, LuaValue>("init") {
-        println!("INIT for {root:?} = {init:?}");
-        if let LuaValue::Function(ref f) = init {
-            let args = cmd[2..]
-                .iter()
-                .map(|v| v.clone().into_lua(&lua).unwrap())
-                .collect::<LuaMultiValue>();
-            let ret = f.call(args).with_context(|| {
-                format!("calling 'init({:?})' on handler for {root:?}", &cmd[2..])
-            })?;
-            let LuaValue::Table(_) = ret else {
-                bail!("calling 'init(...)' on handler for {root:?} expected to return Lua table, got; {ret:?}");
-            };
-            v = ret;
-        }
-    }
-    dst.set(root.as_str(), v).unwrap();
-    Ok(())
-}
-
 fn parent_dir(path: &Path) -> Option<&Path> {
     // can we simplify this somehow?
     path.parent().filter(|p| *p != Path::new(""))
@@ -374,37 +296,6 @@ fn split_handler_path(path: &str) -> (&str, &str) {
     return (start, end);
 }
 
-struct RustHandlers {
-    map: BTreeMap<String, Box<dyn callee::Handler>>,
-}
-
-impl RustHandlers {
-    fn maybe_detect(&mut self, prefix: &str, subpath: &Path) -> Option<Result<bool>> {
-        self.map.get_mut(prefix).map(|h| h.detect(&subpath))
-    }
-
-    fn maybe_gather(
-        &mut self,
-        prefix: &str,
-        subpath: &Path,
-        shadow_root: &Path,
-    ) -> Option<Result<()>> {
-        self.map
-            .get_mut(prefix)
-            .map(|h| h.gather(&subpath, &shadow_root.join(prefix)))
-    }
-
-    fn maybe_affect(
-        &mut self,
-        prefix: &str,
-        subpath: &Path,
-        shadow_root: &Path,
-    ) -> Option<Result<()>> {
-        self.map
-            .get_mut(prefix)
-            .map(|h| h.affect(&subpath, &shadow_root.join(prefix)))
-    }
-}
 
 fn call_handler_method<'a, V: mlua::FromLuaMulti<'a>>(
     handlers: &LuaTable<'a>,
