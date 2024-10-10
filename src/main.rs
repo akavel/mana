@@ -4,6 +4,7 @@ use fn_error_context::context;
 use remotefs::RemoteFs;
 use remotefs_ssh::{ScpFs, SshOpts};
 
+use std::fs::File;
 use std::path::{Path, PathBuf};
 
 #[derive(Parser)]
@@ -41,6 +42,11 @@ fn main() -> Result<()> {
     std::fs::create_dir_all(parent)?;
     h.gather(f, parent)?;
 
+    let w = Path::new("xssh-write");
+    let shadow_w = temp.join(w);
+    std::fs::write(shadow_w, format!("hello-write {pid}\n"))?;
+    h.affect(w, parent)?;
+
     Ok(())
 }
 
@@ -62,7 +68,7 @@ pub mod callee {
     pub trait Handler {
         fn detect(&mut self, path: &Path) -> Result<bool>;
         fn gather(&mut self, path: &Path, shadow_prefix: &Path) -> Result<()>;
-        // fn affect(&mut self, path: &Path, shadow_prefix: &Path) -> Result<()>;
+        fn affect(&mut self, path: &Path, shadow_prefix: &Path) -> Result<()>;
     }
 }
 
@@ -79,8 +85,18 @@ impl callee::Handler for Handler {
     #[context("gathering SSH {path:?} to {shadow_prefix:?}")]
     fn gather(&mut self, path: &Path, shadow_prefix: &Path) -> Result<()> {
         let mut r = self.client.open(path)?;
-        let mut f = std::fs::File::create(shadow_prefix.join(path))?;
-        std::io::copy(&mut r, &mut f)?;
+        let mut w = File::create(shadow_prefix.join(path))?;
+        std::io::copy(&mut r, &mut w)?;
+        Ok(())
+    }
+
+    #[context("affecting {path:?} to SSH {shadow_prefix:?}")]
+    fn affect(&mut self, path: &Path, shadow_prefix: &Path) -> Result<()> {
+        // Try opening local file for reading
+        let mut r = File::open(shadow_prefix.join(path))?;
+        let meta = r.metadata()?;
+        let mut w = self.client.create(path, &meta.into())?;
+        std::io::copy(&mut r, &mut w)?;
         Ok(())
     }
 }
