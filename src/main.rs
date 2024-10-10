@@ -28,5 +28,32 @@ fn main() -> Result<()> {
     println!("auth? {}", sess.authenticated());
 
     //FIXME: try reading home dir /home/pi
+    let mut h = crate::Handler { sess };
+    let f = Path::new("/home/pi/xssh-test");
+    use crate::callee::Handler;
+    println!("detect? {f:?} = {:?}", h.detect(&f));
+
     Ok(())
+}
+
+pub mod callee {
+    use anyhow::Result;
+    use std::path::Path;
+
+    pub trait Handler {
+        fn detect(&mut self, path: &Path) -> Result<bool>;
+        // fn gather(&mut self, path: &Path, shadow_prefix: &Path) -> Result<()>;
+        // fn affect(&mut self, path: &Path, shadow_prefix: &Path) -> Result<()>;
+    }
+}
+
+pub struct Handler {
+    sess: Session,
+}
+
+impl callee::Handler for Handler {
+    fn detect(&mut self, path: &Path) -> Result<bool> {
+        let (chan, stat) = self.sess.scp_recv(path)?;
+        Ok(stat.is_file())
+    }
 }
