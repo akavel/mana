@@ -1,5 +1,6 @@
-use anyhow::{bail, Context, Result};
+use anyhow::Result;
 use clap::Parser;
+use fn_error_context::context;
 use remotefs::RemoteFs;
 use remotefs_ssh::{ScpFs, SshOpts};
 
@@ -27,9 +28,18 @@ fn main() -> Result<()> {
 
     //FIXME: try reading home dir /home/pi
     let mut h = crate::Handler { client };
-    let f = Path::new("/home/pi/xssh-test");
+    // let f = Path::new("/home/pi/xssh-test");
+    let f = Path::new("xssh-test");
     use crate::callee::Handler;
     println!("detect? {f:?} = {:?}", h.detect(f));
+
+    let pid = format!("{}", std::process::id());
+    let temp = std::env::temp_dir().join(&pid);
+    println!("gather... {f:?} into {temp:?}");
+    let shadow_f = temp.join(f);
+    let parent = shadow_f.parent().unwrap();
+    std::fs::create_dir_all(parent)?;
+    h.gather(f, parent)?;
 
     Ok(())
 }
@@ -51,7 +61,7 @@ pub mod callee {
 
     pub trait Handler {
         fn detect(&mut self, path: &Path) -> Result<bool>;
-        // fn gather(&mut self, path: &Path, shadow_prefix: &Path) -> Result<()>;
+        fn gather(&mut self, path: &Path, shadow_prefix: &Path) -> Result<()>;
         // fn affect(&mut self, path: &Path, shadow_prefix: &Path) -> Result<()>;
     }
 }
@@ -61,7 +71,16 @@ pub struct Handler {
 }
 
 impl callee::Handler for Handler {
+    #[context("detecting SSH {path:?}")]
     fn detect(&mut self, path: &Path) -> Result<bool> {
         Ok(self.client.exists(path)?)
+    }
+
+    #[context("gathering SSH {path:?} to {shadow_prefix:?}")]
+    fn gather(&mut self, path: &Path, shadow_prefix: &Path) -> Result<()> {
+        let mut r = self.client.open(path)?;
+        let mut f = std::fs::File::create(shadow_prefix.join(path))?;
+        std::io::copy(&mut r, &mut f)?;
+        Ok(())
     }
 }

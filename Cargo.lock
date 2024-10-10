@@ -219,6 +219,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "fn-error-context"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2cd66269887534af4b0c3e3337404591daa8dc8b9b2b3db71f9523beb4bafb41"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "getrandom"
 version = "0.2.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -910,6 +921,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
+ "fn-error-context",
  "remotefs",
  "remotefs-ssh",
 ]
