@@ -14,7 +14,7 @@ use unicase::UniCase;
 
 use script::Script;
 
-use mana2::handlers::Handlers;
+use mana2::effectors::Effectors;
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -90,9 +90,9 @@ fn query(script: Script) -> Result<()> {
         bail!("git 'shadow_dir' repository is not clean (see: git status)");
     }
 
-    // Initialize handlers
+    // Initialize effectors
     let lua = Lua::new();
-    let mut handlers = Handlers::init(&lua, &script.handlers)?;
+    let mut effectors = Effectors::init(&lua, &script.effectors)?;
 
     // Make a list of paths in 'tree' and in git
     let head = repo.head()?;
@@ -127,30 +127,30 @@ fn query(script: Script) -> Result<()> {
         debug!(" - {k:?}");
     }
 
-    // Run 'query' on appropriate handlers for all listed paths, fetching files into the git workspace
+    // Run 'query' on appropriate effectors for all listed paths, fetching files into the git workspace
     let dir = Dir::open_ambient_dir(&script.shadow_dir, ambient_authority())?;
     for path in &paths {
         if let Some(parent) = parent_dir(&PathBuf::from_slash(path)) {
             dir.create_dir_all(parent).context("in shadow_dir")?;
         }
-        let (prefix, subpath) = split_handler_path(path);
-        let found = handlers.detect(prefix, subpath)?;
+        let (prefix, subpath) = split_effector_path(path);
+        let found = effectors.detect(prefix, subpath)?;
         let shadow_path = PathBuf::from(&script.shadow_dir).join(PathBuf::from_slash(path));
         if !found {
             std::fs::remove_file(shadow_path)?;
             continue;
         }
-        handlers.gather(prefix, subpath, &script.shadow_dir)?;
+        effectors.gather(prefix, subpath, &script.shadow_dir)?;
     }
 
-    // Two-way compare: current git <-> results of handlers.query
+    // Two-way compare: current git <-> results of effectors.query
     if !check_git_statuses_empty(&repo)? {
         bail!(
             "real disk contents differ from expected prerequisites; check git diff in shadow repo: {:?}", script.shadow_dir,
         );
     }
 
-    // TODO: 3-way compare: curr git <-> handlers.query results <-> parsed input
+    // TODO: 3-way compare: curr git <-> effectors.query results <-> parsed input
     // TODO: https://github.com/akavel/drafts/blob/main/20231122-001-mana2.md
     Ok(())
 }
@@ -205,9 +205,9 @@ fn draft(script: Script) -> Result<()> {
 fn apply(script: Script) -> Result<()> {
     let repo = open_shadow_repo(&script)?;
 
-    // Initialize handlers
+    // Initialize effectors
     let lua = Lua::new();
-    let mut handlers = Handlers::init(&lua, &script.handlers)?;
+    let mut effectors = Effectors::init(&lua, &script.effectors)?;
 
     // iterate modified files in repo, incl. untracked
     // TODO: also iterate unmodified?
@@ -225,8 +225,8 @@ fn apply(script: Script) -> Result<()> {
             );
         };
         let os_rel_path = PathBuf::from_slash(path);
-        let (prefix, subpath) = split_handler_path(path);
-        handlers.affect(prefix, subpath, &script.shadow_dir)?;
+        let (prefix, subpath) = split_effector_path(path);
+        effectors.affect(prefix, subpath, &script.shadow_dir)?;
         use git2::Status;
         match stat.status() {
             Status::WT_NEW | Status::WT_MODIFIED => {
@@ -259,7 +259,7 @@ fn parent_dir(path: &Path) -> Option<&Path> {
     path.parent().filter(|p| *p != Path::new(""))
 }
 
-fn split_handler_path(path: &str) -> (&str, &str) {
+fn split_effector_path(path: &str) -> (&str, &str) {
     let Some(idx) = path.find('/') else {
         panic!("slash not found in path: {path:?}");
     };

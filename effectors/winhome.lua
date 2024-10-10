@@ -3,7 +3,7 @@ local winhome = {}
 local arg = arg
 _G.arg = nil
 
-local winfs = require 'handler.winfs'
+local winfs = require 'effectors.winfs'
 
 function winhome.exists(path)
   return winfs.osexists(winhome.ospath(path))

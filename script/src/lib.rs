@@ -7,11 +7,11 @@ use toml::macros::Deserialize;
 #[derive(Debug)]
 pub struct Script {
     pub shadow_dir: String,
-    pub handlers: Handlers,
+    pub effectors: Effectors,
     pub paths: PathContentMap,
 }
 
-pub type Handlers = BTreeMap<String, Vec<String>>;
+pub type Effectors = BTreeMap<String, Vec<String>>;
 pub type PathContentMap = BTreeMap<String, String>;
 
 impl Script {
@@ -56,13 +56,13 @@ impl Script {
         };
         debug!("SHAD: {shadow_dir:?}");
 
-        // Extract `handlers` from toml
+        // Extract `effectors` from toml
         // TODO[LATER]: use serde instead to extract, maybe
-        let Some(raw_handlers) = toml.remove("handlers") else {
-            bail!("Missing 'handlers' in stdin");
+        let Some(raw_effectors) = toml.remove("effectors") else {
+            bail!("Missing 'effectors' in stdin");
         };
-        let toml::Value::Table(raw_handlers) = raw_handlers else {
-            bail!("Expected 'handlers' to be table, got: {raw_handlers:?}");
+        let toml::Value::Table(raw_effectors) = raw_effectors else {
+            bail!("Expected 'effectors' to be table, got: {raw_effectors:?}");
         };
 
         // Extract `tree` from toml
@@ -74,16 +74,16 @@ impl Script {
             bail!("Expected 'tree' to be table, got: {raw_tree:?}");
         };
 
-        // Convert handlers to a simple map
+        // Convert effectors to a simple map
         // TODO[LATER]: preserve original order
-        let mut handlers = Handlers::new();
-        for (k, v) in raw_handlers {
+        let mut effectors = Effectors::new();
+        for (k, v) in raw_effectors {
             let toml::Value::String(s) = v else {
-                bail!("Unexpected type of handler {k:?}, want String, got: {v:?}");
+                bail!("Unexpected type of effector {k:?}, want String, got: {v:?}");
             };
-            handlers.insert(k, s.split_whitespace().map(str::to_string).collect());
+            effectors.insert(k, s.split_whitespace().map(str::to_string).collect());
         }
-        debug!("HANDL: {handlers:?}");
+        debug!("HANDL: {effectors:?}");
 
         // Convert tree to paths map
         let mut paths = PathContentMap::new();
@@ -114,7 +114,7 @@ impl Script {
 
         Ok(Script {
             shadow_dir,
-            handlers,
+            effectors,
             paths,
         })
     }

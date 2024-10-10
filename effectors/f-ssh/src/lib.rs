@@ -6,8 +6,6 @@ use remotefs_ssh::{ScpFs, SshOpts};
 use std::fs::File;
 use std::path::{Path, PathBuf};
 
-use effectors::callee;
-
 pub struct Args {
     host: String,
     user: String,
@@ -42,7 +40,7 @@ impl remotefs_ssh::SshKeyStorage for SshKeyPath {
     }
 }
 
-impl callee::Handler for Effector {
+impl effectors::Callee for Effector {
     #[context("detecting SSH {path:?}")]
     fn detect(&mut self, path: &Path) -> Result<bool> {
         Ok(self.client.exists(path)?)

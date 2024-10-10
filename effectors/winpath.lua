@@ -6,7 +6,7 @@ local winpath = {}
 local arg = arg
 _G.arg = nil
 
-local winfs = require 'handler.winfs'
+local winfs = require 'effectors.winfs'
 
 -- simplify path for comparison purposes
 local function simplify(ospath)

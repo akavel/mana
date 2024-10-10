@@ -6,38 +6,37 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use thiserror::Error;
 
-use effectors::callee;
-use script::Handlers as Spec;
+use script::Effectors as Spec;
 
-pub struct Handlers<'lua> {
+pub struct Effectors<'lua> {
     lua: LuaTable<'lua>,
-    rust: RustHandlers,
+    rust: RustEffectors,
 }
 
-impl<'lua> Handlers<'lua> {
-    pub fn init(lua: &'lua Lua, spec: &Spec) -> Result<Handlers<'lua>> {
-        let lua_handlers = lua.create_table().unwrap();
-        let mut rust_handlers = RustHandlers {
+impl<'lua> Effectors<'lua> {
+    pub fn init(lua: &'lua Lua, spec: &Spec) -> Result<Effectors<'lua>> {
+        let lua_effectors = lua.create_table().unwrap();
+        let mut rust_effectors = RustEffectors {
             map: BTreeMap::new(),
         };
         for (root, cmd) in spec {
-            if init_lua_handler(lua, &lua_handlers, root.clone(), cmd.clone()).is_ok() {
+            if init_lua_effector(lua, &lua_effectors, root.clone(), cmd.clone()).is_ok() {
                 continue;
             }
             match &cmd[..] {
                 [s] if s == "zeroinstall" => {
-                    rust_handlers
+                    rust_effectors
                         .map
-                        .insert(root.clone(), Box::new(f_zeroinstall::Handler::new()?));
+                        .insert(root.clone(), Box::new(f_zeroinstall::Effector::new()?));
                 }
                 _ => {
-                    bail!("unknown handler command: {cmd:?}");
+                    bail!("unknown effector command: {cmd:?}");
                 }
             }
         }
         Ok(Self {
-            lua: lua_handlers,
-            rust: rust_handlers,
+            lua: lua_effectors,
+            rust: rust_effectors,
         })
     }
 
@@ -48,8 +47,8 @@ impl<'lua> Handlers<'lua> {
         {
             r
         } else {
-            call_handler_method(&self.lua, prefix, "exists", subpath)
-                .with_context(|| format!("calling handlers[{prefix:?}]:exists({subpath:?})"))
+            call_effector_method(&self.lua, prefix, "exists", subpath)
+                .with_context(|| format!("calling effectors[{prefix:?}]:exists({subpath:?})"))
         }
     }
 
@@ -65,13 +64,13 @@ impl<'lua> Handlers<'lua> {
             let shadow_path = PathBuf::from(&shadow_root)
                 .join(prefix)
                 .join(PathBuf::from_slash(subpath));
-            call_handler_method(
+            call_effector_method(
                 &self.lua,
                 prefix,
                 "query",
                 (subpath, shadow_path.to_str().unwrap()),
             )
-            .with_context(|| format!("calling handlers[{prefix:?}]:query({subpath:?})"))
+            .with_context(|| format!("calling effectors[{prefix:?}]:query({subpath:?})"))
         }
     }
 
@@ -87,39 +86,39 @@ impl<'lua> Handlers<'lua> {
             let shadow_path = PathBuf::from(&shadow_root)
                 .join(prefix)
                 .join(PathBuf::from_slash(subpath));
-            call_handler_method(
+            call_effector_method(
                 &self.lua,
                 prefix,
                 "apply",
                 (subpath, shadow_path.to_str().unwrap()),
             )
-            .with_context(|| format!("calling handlers[{prefix:?}]:apply({subpath:?})"))
+            .with_context(|| format!("calling effectors[{prefix:?}]:apply({subpath:?})"))
         }
     }
 }
 
 #[derive(Error, Debug)]
-enum InitHandlerError {
-    #[error("not a Lua-based handler")]
+enum InitEffectorError {
+    #[error("not a Lua-based effector")]
     NotLua,
 }
 
-fn init_lua_handler(lua: &Lua, dst: &LuaTable, root: String, cmd: Vec<String>) -> Result<()> {
+fn init_lua_effector(lua: &Lua, dst: &LuaTable, root: String, cmd: Vec<String>) -> Result<()> {
     if cmd.len() < 2 || cmd[0] != "lua53" {
-        return Err(anyhow::Error::new(InitHandlerError::NotLua));
+        return Err(anyhow::Error::new(InitEffectorError::NotLua));
     }
     //if cmd.len() < 2 {
-    //    bail!("Handler for {root:?} has too few elements - expected 2+, got: {cmd:?}");
+    //    bail!("Effector for {root:?} has too few elements - expected 2+, got: {cmd:?}");
     //}
     //if cmd[0] != "lua53" {
-    //    bail!("FIXME: currently handler[0] must be 'lua53'");
+    //    bail!("FIXME: currently effector[0] must be 'lua53'");
     //}
     let source = std::fs::read_to_string(&cmd[1])
-        .with_context(|| format!("reading Lua script for handler for {root:?}"))?;
+        .with_context(|| format!("reading Lua script for effector for {root:?}"))?;
     // TODO: eval and load returned module - must refactor scripts first
     let mut v = lua.load(source).set_name(&cmd[1]).eval::<LuaValue>()?;
     let LuaValue::Table(ref t) = v else {
-        bail!("Handler for {root:?} expected to return Lua table, but got: {v:?}");
+        bail!("Effector for {root:?} expected to return Lua table, but got: {v:?}");
     };
     if let Ok(init) = t.get::<&str, LuaValue>("init") {
         debug!("INIT for {root:?} = {init:?}");
@@ -129,10 +128,10 @@ fn init_lua_handler(lua: &Lua, dst: &LuaTable, root: String, cmd: Vec<String>) -
                 .map(|v| v.clone().into_lua(lua).unwrap())
                 .collect::<LuaMultiValue>();
             let ret = f.call(args).with_context(|| {
-                format!("calling 'init({:?})' on handler for {root:?}", &cmd[2..])
+                format!("calling 'init({:?})' on effector for {root:?}", &cmd[2..])
             })?;
             let LuaValue::Table(_) = ret else {
-                bail!("calling 'init(...)' on handler for {root:?} expected to return Lua table, got; {ret:?}");
+                bail!("calling 'init(...)' on effector for {root:?} expected to return Lua table, got; {ret:?}");
             };
             v = ret;
         }
@@ -141,29 +140,29 @@ fn init_lua_handler(lua: &Lua, dst: &LuaTable, root: String, cmd: Vec<String>) -
     Ok(())
 }
 
-fn call_handler_method<'a, V: mlua::FromLuaMulti<'a>>(
-    handlers: &LuaTable<'a>,
+fn call_effector_method<'a, V: mlua::FromLuaMulti<'a>>(
+    effectors: &LuaTable<'a>,
     prefix: &str,
     method: &str,
     args: impl mlua::IntoLuaMulti<'a>,
 ) -> Result<V> {
-    let handler: LuaValue = handlers.get(prefix).unwrap();
-    let LuaValue::Table(ref t) = handler else {
-        bail!("expected Lua handler for {prefix:?} to be a table, but got: {handler:?}");
+    let effector: LuaValue = effectors.get(prefix).unwrap();
+    let LuaValue::Table(ref t) = effector else {
+        bail!("expected Lua effector for {prefix:?} to be a table, but got: {effector:?}");
     };
     let method_val: LuaValue = t.get(method).unwrap();
     let LuaValue::Function(ref f) = method_val else {
-        bail!("expected '{method}' in Lua handler for {prefix:?} to be a function, but got: {method_val:?}");
+        bail!("expected '{method}' in Lua effector for {prefix:?} to be a function, but got: {method_val:?}");
     };
     let res: V = f.call(args)?;
     Ok(res)
 }
 
-struct RustHandlers {
-    map: BTreeMap<String, Box<dyn callee::Handler>>,
+struct RustEffectors {
+    map: BTreeMap<String, Box<dyn effectors::Callee>>,
 }
 
-impl RustHandlers {
+impl RustEffectors {
     fn maybe_detect(&mut self, prefix: &str, subpath: &Path) -> Option<Result<bool>> {
         self.map.get_mut(prefix).map(|h| h.detect(subpath))
     }

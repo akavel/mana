@@ -11,19 +11,17 @@ use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use effectors::callee;
-
-pub struct Handler {
+pub struct Effector {
     apps: BTreeMap<PathBuf, String>,
 }
 
-impl Handler {
-    pub fn new() -> Result<Handler> {
+impl Effector {
+    pub fn new() -> Result<Effector> {
         query_0install()
     }
 }
 
-impl callee::Handler for Handler {
+impl effectors::Callee for Effector {
     fn detect(&mut self, path: &Path) -> Result<bool> {
         Ok(self.apps.contains_key(path))
     }
@@ -116,7 +114,7 @@ impl callee::Handler for Handler {
     }
 }
 
-fn query_0install() -> Result<Handler> {
+fn query_0install() -> Result<Effector> {
     // TODO[LATER]: streaming read & parse
     // TODO[LATER]: handle stderr & better handling of errors/failures
     let stdout = Command::new("0install")
@@ -153,7 +151,7 @@ fn query_0install() -> Result<Handler> {
         })
         .collect();
     //println!("{map:?}");
-    Ok(Handler { apps: map? })
+    Ok(Effector { apps: map? })
 }
 
 mod raw {

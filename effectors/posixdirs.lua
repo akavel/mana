@@ -3,7 +3,7 @@ local posixdirs = {}
 local arg = arg
 _G.arg = nil
 
-local posixfiles = require 'handler.posixfiles'
+local posixfiles = require 'effectors.posixfiles'
 
 function posixdirs.forroot(root)
   local root = root:gsub('/*$', '/')

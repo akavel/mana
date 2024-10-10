@@ -7,7 +7,7 @@ function winfs.init(uuid)
   return winfs.fordisk(uuid)
 end
 
--- winfs.fordisk returns a handler for affecting files on a Windows disk
+-- winfs.fordisk returns an effector for affecting files on a Windows disk
 -- (partition) identified by a UUID. To get UUIDs of currently connected disks
 -- on Windows, run `mountvol` command.
 function winfs.fordisk(uuid)
