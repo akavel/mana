@@ -11,9 +11,9 @@ default-run = "mana"
 name = "mana"
 path = "src/main.rs"
 
-#[[bin]]
-#name = "exp"
-#path = "src/exp-tmp.rs"
+[[bin]]
+name = "x"
+path = "src/exp-tmp.rs"
 
 #[[bin]]
 #name = "zeroinst"
@@ -22,7 +22,7 @@ path = "src/main.rs"
 [dependencies]
 anyhow = "1.0.79"
 cap-std = "3.0.0"
-clap = { version = "4.4.18", features = ["derive", "wrap_help"] }
+clap = { version = "4.4.18", features = ["derive", "env", "wrap_help"] }
 env_logger = "0.11.5"
 git2 = { version = "0.18.1", features = ["vendored-libgit2"], default-features = false }
 itertools = "0.12.1"
