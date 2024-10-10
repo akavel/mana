@@ -9,7 +9,7 @@ use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use crate::manaprotocol::callee;
+use effectors::callee;
 
 pub struct Handler {
     apps: BTreeMap<PathBuf, String>,

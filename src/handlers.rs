@@ -6,9 +6,10 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use thiserror::Error;
 
+use effectors::callee;
+use script::Handlers as Spec;
+
 use crate::handler::zeroinstall;
-use crate::manaprotocol::callee;
-use crate::script::Handlers as Spec;
 
 pub struct Handlers<'lua> {
     lua: LuaTable<'lua>,

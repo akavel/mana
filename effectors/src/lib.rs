@@ -8,3 +8,4 @@ pub mod callee {
         fn affect(&mut self, path: &Path, shadow_prefix: &Path) -> Result<()>;
     }
 }
+

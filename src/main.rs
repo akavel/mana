@@ -12,8 +12,9 @@ use std::path::{Path, PathBuf};
 use path_slash::PathBufExt as _;
 use unicase::UniCase;
 
+use script::Script;
+
 use mana2::handlers::Handlers;
-use mana2::script::Script;
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
