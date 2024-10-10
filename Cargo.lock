@@ -467,6 +467,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "f-zeroinstall"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "effectors",
+ "itertools 0.12.1",
+ "log",
+ "path-slash",
+ "tempfile",
+ "url",
+ "xml-rs",
+ "yaserde",
+]
+
+[[package]]
 name = "fastrand"
 version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -943,6 +958,7 @@ dependencies = [
  "effectors",
  "env_logger",
  "f-ssh",
+ "f-zeroinstall",
  "git2",
  "itertools 0.12.1",
  "log",
@@ -950,13 +966,10 @@ dependencies = [
  "path-slash",
  "peg",
  "script",
- "tempfile",
  "thiserror",
  "unicase",
  "url",
  "urlencoding",
- "xml-rs",
- "yaserde",
 ]
 
 [[package]]

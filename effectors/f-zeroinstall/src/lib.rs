@@ -1,3 +1,5 @@
+pub mod xmlutil;
+
 use anyhow::{bail, Result};
 use itertools::Itertools;
 use log::debug;
@@ -181,3 +183,4 @@ mod raw {
         pub access_points: Option<xmlutil::OpaqueXml>,
     }
 }
+

@@ -9,8 +9,6 @@ use thiserror::Error;
 use effectors::callee;
 use script::Handlers as Spec;
 
-use crate::handler::zeroinstall;
-
 pub struct Handlers<'lua> {
     lua: LuaTable<'lua>,
     rust: RustHandlers,
@@ -30,7 +28,7 @@ impl<'lua> Handlers<'lua> {
                 [s] if s == "zeroinstall" => {
                     rust_handlers
                         .map
-                        .insert(root.clone(), Box::new(zeroinstall::Handler::new()?));
+                        .insert(root.clone(), Box::new(f_zeroinstall::Handler::new()?));
                 }
                 _ => {
                     bail!("unknown handler command: {cmd:?}");

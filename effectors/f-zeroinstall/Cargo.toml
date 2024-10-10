@@ -1,0 +1,15 @@
+[package]
+name = "f-zeroinstall"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+effectors = { path = ".." }
+anyhow = "1.0.79"
+itertools = "0.12.1"
+log = "0.4.22"
+path-slash = "0.2.1"
+tempfile = "3.9.0"
+url = "2.5.0"
+yaserde = { version = "0.10.0", features = ["yaserde_derive"] }
+xml-rs = "0.8.20"
