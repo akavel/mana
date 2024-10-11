@@ -4,6 +4,7 @@ use remotefs::RemoteFs;
 use remotefs_ssh::{ScpFs, SshOpts};
 
 use std::fs::File;
+use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 
 pub struct Args {
@@ -56,7 +57,17 @@ impl effectors::Callee for Effector {
 
     #[context("affecting {path:?} to SSH {shadow_prefix:?}")]
     fn affect(&mut self, path: &Path, shadow_prefix: &Path) -> Result<()> {
-        let mut r = File::open(shadow_prefix.join(path))?;
+        let maybe_r = File::open(shadow_prefix.join(path));
+        // Handle file-not-found scenario - remove remote file
+        // TODO: merge two ifs once let-chains are stabilized
+        if let Err(ref err) = maybe_r {
+            if err.kind() == ErrorKind::NotFound {
+                self.client.remove_file(path)?;
+                return Ok(());
+            }
+        }
+        let mut r = maybe_r?;
+
         let meta = r.metadata()?;
         let mut w = self.client.create(path, &meta.into())?;
         std::io::copy(&mut r, &mut w)?;
