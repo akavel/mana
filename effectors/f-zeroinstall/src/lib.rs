@@ -22,6 +22,10 @@ impl Effector {
 }
 
 impl effectors::Callee for Effector {
+    fn start(_: std::env::Args) -> Result<Self> {
+        Effector::new()
+    }
+
     fn detect(&mut self, path: &Path) -> Result<bool> {
         Ok(self.apps.contains_key(path))
     }

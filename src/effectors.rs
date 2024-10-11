@@ -8,11 +8,12 @@ use thiserror::Error;
 
 use script::Effectors as Spec;
 
-pub fn serve(args: std::env::Args) -> Result<()> {
+pub fn serve(mut args: std::env::Args) -> Result<()> {
     let Some(name) = args.next() else {
         bail!("subcommand 'effector' requires name of effector");
     };
-    match name {
+    use effectors::Callee;
+    match name.as_str() {
         "*zeroinstall" => f_zeroinstall::Effector::serve(args),
         _ => Err(anyhow!("unknown effector name: {name:?}")),
     }

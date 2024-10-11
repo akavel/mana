@@ -50,10 +50,10 @@ fn main() -> Result<()> {
     // If used, pass all subsequent args to it.
     {
         let mut args = std::env::args();
-        if args.nth(1) == "effector" {
+        if args.nth(1).as_deref() == Some("effector") {
             effectors::serve(args)?;
+            return Ok(());
         }
-        return Ok(());
     }
 
     let cli = Cli::parse();

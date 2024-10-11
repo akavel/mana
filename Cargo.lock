@@ -386,6 +386,7 @@ name = "effectors"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "urlencoding",
 ]
 
 [[package]]
@@ -969,7 +970,6 @@ dependencies = [
  "thiserror",
  "unicase",
  "url",
- "urlencoding",
 ]
 
 [[package]]

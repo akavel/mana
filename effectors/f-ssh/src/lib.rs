@@ -44,6 +44,10 @@ impl remotefs_ssh::SshKeyStorage for SshKeyPath {
 }
 
 impl effectors::Callee for Effector {
+    fn start(args: std::env::Args) -> Result<Self> {
+        todo!();
+    }
+
     #[context("detecting SSH {path:?}")]
     fn detect(&mut self, path: &Path) -> Result<bool> {
         Ok(self.client.exists(path)?)
