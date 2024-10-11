@@ -1,4 +1,5 @@
 use anyhow::Result;
+use clap::Parser;
 use fn_error_context::context;
 use remotefs::RemoteFs;
 use remotefs_ssh::{ScpFs, SshOpts};
@@ -7,9 +8,13 @@ use std::fs::File;
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 
+#[derive(Parser, Debug)]
 pub struct Args {
+    #[arg(long)]
     host: String,
+    #[arg(long)]
     user: String,
+    #[arg(long)]
     key_path: PathBuf,
     // TODO: add base_dir
 }
@@ -45,7 +50,9 @@ impl remotefs_ssh::SshKeyStorage for SshKeyPath {
 
 impl effectors::Callee for Effector {
     fn start(args: std::env::Args) -> Result<Self> {
-        todo!();
+        let dummy_arg0 = Some("".to_string());
+        let args = Args::parse_from(dummy_arg0.into_iter().chain(args));
+        Effector::new(args)
     }
 
     #[context("detecting SSH {path:?}")]
