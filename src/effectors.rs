@@ -1,4 +1,4 @@
-use anyhow::{bail, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use log::debug;
 use mlua::prelude::{IntoLua, Lua, LuaMultiValue, LuaTable, LuaValue};
 use path_slash::PathBufExt as _;
@@ -7,6 +7,16 @@ use std::path::{Path, PathBuf};
 use thiserror::Error;
 
 use script::Effectors as Spec;
+
+pub fn serve(args: std::env::Args) -> Result<()> {
+    let Some(name) = args.next() else {
+        bail!("subcommand 'effector' requires name of effector");
+    };
+    match name {
+        "*zeroinstall" => f_zeroinstall::Effector::serve(args),
+        _ => Err(anyhow!("unknown effector name: {name:?}")),
+    }
+}
 
 pub struct Effectors<'lua> {
     lua: LuaTable<'lua>,

@@ -14,7 +14,7 @@ use unicase::UniCase;
 
 use script::Script;
 
-use mana2::effectors::Effectors;
+use mana2::effectors::{Effectors, self};
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -46,10 +46,15 @@ enum Command {
 }
 
 fn main() -> Result<()> {
-    // TODO: 3 commands:
-    // TODO: query: real world -> git; then compare/diff by hand
-    // TODO: draft: Nickel -> git; then compare/diff by hand
-    // TODO: apply: git -> real world, + git add each successful
+    // Handle hidden (internal) subcommand: `effector`.
+    // If used, pass all subsequent args to it.
+    {
+        let mut args = std::env::args();
+        if args.nth(1) == "effector" {
+            effectors::serve(args)?;
+        }
+        return Ok(());
+    }
 
     let cli = Cli::parse();
 
