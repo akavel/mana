@@ -15,60 +15,62 @@ pub trait Callee {
     where
         Self: Sized,
     {
-        let mut c = Self::start(args)?;
-
+        use anyhow::{anyhow, bail};
+        use itertools::Itertools;
         use std::io::{BufRead, Write};
+        use std::path::PathBuf;
+        use std::str::FromStr;
+
+        let mut c = Self::start(args)?;
         let mut in_lines = std::io::stdin().lock().lines();
         let mut out = std::io::stdout().lock();
 
         // Handshake
-        use anyhow::{anyhow, bail};
         let handshake = in_lines
             .next()
             .ok_or(anyhow!("expected handshake, got EOF on stdin"))??;
-        // let Some(handshake) = in_lines.next() else {
-        //     bail!("expected handshake, got EOF on stdin");
-        // };
-        // let handshake = handshake?;
         if !handshake.starts_with("com.akavel.mana.v1.rq") {
             bail!("expected v1 handshake, got: {handshake:?}");
         }
         writeln!(out, "com.akavel.mana.v1.rs")?;
         out.flush()?;
 
+        // Dispatch commands to appropriate trait functions
         loop {
             let Some(line) = in_lines.next() else {
                 return Ok(());
             };
             let line = line?;
+
             let Some((cmd, args)) = line.split_once(' ') else {
                 bail!("expected command with args, got: {line:?}");
             };
-            let mut args = args.split(' ');
-            use std::path::PathBuf;
-            use std::str::FromStr;
+            let mut args = args.split(' ').map(urlencoding::decode);
             match cmd {
                 "detect" => {
                     let Some(arg1) = args.next() else {
                         bail!("expected 1 arg to 'detect', got none");
                     };
-                    // FIXME: add error context pointing to 1st arg of 'detect'
-                    let arg1 = urlencoding::decode(arg1)?;
-                    // TODO: should we verify path is relative? or absolute?
-                    // TODO: should/can this be simplified?
-                    let path = PathBuf::from_str(&arg1)?;
-                    let res = c.detect(&path)?;
-                    writeln!(
-                        out,
-                        "detected {} {}",
-                        // TODO: use path instead? (normalized?)
-                        urlencoding::encode(&arg1),
-                        if res { "present" } else { "absent" }
-                    )?;
-                    out.flush()?;
+                    let res = c.detect(&PathBuf::from_str(&arg1?)?)?;
+                    writeln!(out, "detected {}", if res { "present" } else { "absent" })?;
+                }
+                "gather" => {
+                    let Some((arg1, arg2)) = args.next_tuple() else {
+                        bail!("expected 2 args to 'gather', got less");
+                    };
+                    c.gather(&PathBuf::from_str(&arg1?)?, &PathBuf::from_str(&arg2?)?)?;
+                    writeln!(out, "gathered")?;
+                }
+                "affect" => {
+                    let Some((arg1, arg2)) = args.next_tuple() else {
+                        bail!("expected 2 args to 'affect', got less");
+                    };
+                    c.affect(&PathBuf::from_str(&arg1?)?, &PathBuf::from_str(&arg2?)?)?;
+                    writeln!(out, "affected")?;
                 }
                 _ => bail!("unknown command: {cmd:?}"),
             }
+            out.flush()?;
         }
     }
 }

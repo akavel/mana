@@ -5,4 +5,5 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.79"
+itertools = "0.13"
 urlencoding = "2.1.3"
