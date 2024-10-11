@@ -14,7 +14,7 @@ use unicase::UniCase;
 
 use script::Script;
 
-use mana2::effectors::{Effectors, self};
+use mana2::effectors::{self, Effectors};
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]

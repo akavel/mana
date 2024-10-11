@@ -3,13 +3,18 @@ use anyhow::Result;
 use std::path::Path;
 
 pub trait Callee {
-    fn start(args: std::env::Args) -> Result<Self> where Self: Sized;
+    fn start(args: std::env::Args) -> Result<Self>
+    where
+        Self: Sized;
 
     fn detect(&mut self, path: &Path) -> Result<bool>;
     fn gather(&mut self, path: &Path, shadow_prefix: &Path) -> Result<()>;
     fn affect(&mut self, path: &Path, shadow_prefix: &Path) -> Result<()>;
 
-    fn serve(args: std::env::Args) -> Result<()> where Self: Sized {
+    fn serve(args: std::env::Args) -> Result<()>
+    where
+        Self: Sized,
+    {
         let mut c = Self::start(args)?;
 
         use std::io::{BufRead, Write};
@@ -18,7 +23,9 @@ pub trait Callee {
 
         // Handshake
         use anyhow::{anyhow, bail};
-        let handshake = in_lines.next().ok_or(anyhow!("expected handshake, got EOF on stdin"))??;
+        let handshake = in_lines
+            .next()
+            .ok_or(anyhow!("expected handshake, got EOF on stdin"))??;
         // let Some(handshake) = in_lines.next() else {
         //     bail!("expected handshake, got EOF on stdin");
         // };
@@ -51,10 +58,13 @@ pub trait Callee {
                     // TODO: should/can this be simplified?
                     let path = PathBuf::from_str(&arg1)?;
                     let res = c.detect(&path)?;
-                    writeln!(out, "detected {} {}",
-                             // TODO: use path instead? (normalized?)
-                             urlencoding::encode(&arg1),
-                             if res { "present" } else {"absent"})?;
+                    writeln!(
+                        out,
+                        "detected {} {}",
+                        // TODO: use path instead? (normalized?)
+                        urlencoding::encode(&arg1),
+                        if res { "present" } else { "absent" }
+                    )?;
                     out.flush()?;
                 }
                 _ => bail!("unknown command: {cmd:?}"),
