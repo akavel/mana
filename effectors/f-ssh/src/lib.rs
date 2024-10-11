@@ -23,10 +23,12 @@ impl Effector {
     pub fn new(args: Args) -> Result<Self> {
         let mut client: ScpFs = SshOpts::new(&args.host)
             .username(&args.user)
-            .key_storage(Box::new(SshKeyPath { path: args.key_path.clone() }))
+            .key_storage(Box::new(SshKeyPath {
+                path: args.key_path.clone(),
+            }))
             .into();
         client.connect()?;
-        Ok(Self{ client })
+        Ok(Self { client })
     }
 }
 
@@ -74,4 +76,3 @@ impl effectors::Callee for Effector {
         Ok(())
     }
 }
-

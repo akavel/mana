@@ -181,4 +181,3 @@ mod raw {
         pub access_points: Option<xmlutil::OpaqueXml>,
     }
 }
-

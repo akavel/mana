@@ -119,4 +119,3 @@ impl Script {
         })
     }
 }
-
