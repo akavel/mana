@@ -1,6 +1,6 @@
 use anyhow::Result;
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 pub trait Callee {
     fn start(args: std::env::Args) -> Result<Self>
@@ -18,8 +18,6 @@ pub trait Callee {
         use anyhow::{anyhow, bail};
         use itertools::Itertools;
         use std::io::{BufRead, Write};
-        use std::path::PathBuf;
-        use std::str::FromStr;
 
         let mut c = Self::start(args)?;
         let mut in_lines = std::io::stdin().lock().lines();
@@ -37,35 +35,33 @@ pub trait Callee {
 
         // Dispatch commands to appropriate trait functions
         loop {
-            let Some(line) = in_lines.next() else {
+            let Some(line) = in_lines.next().transpose()? else {
                 return Ok(());
             };
-            let line = line?;
-
             let Some((cmd, args)) = line.split_once(' ') else {
                 bail!("expected command with args, got: {line:?}");
             };
-            let mut args = args.split(' ').map(urlencoding::decode);
+            let mut args = args.split(' ').map(urldecode_to_path);
             match cmd {
                 "detect" => {
-                    let Some(arg1) = args.next() else {
+                    let Some(path) = args.next() else {
                         bail!("expected 1 arg to 'detect', got none");
                     };
-                    let res = c.detect(&PathBuf::from_str(&arg1?)?)?;
+                    let res = c.detect(&path?)?;
                     writeln!(out, "detected {}", if res { "present" } else { "absent" })?;
                 }
                 "gather" => {
-                    let Some((arg1, arg2)) = args.next_tuple() else {
+                    let Some((path1, path2)) = args.next_tuple() else {
                         bail!("expected 2 args to 'gather', got less");
                     };
-                    c.gather(&PathBuf::from_str(&arg1?)?, &PathBuf::from_str(&arg2?)?)?;
+                    c.gather(&path1?, &path2?)?;
                     writeln!(out, "gathered")?;
                 }
                 "affect" => {
-                    let Some((arg1, arg2)) = args.next_tuple() else {
+                    let Some((path1, path2)) = args.next_tuple() else {
                         bail!("expected 2 args to 'affect', got less");
                     };
-                    c.affect(&PathBuf::from_str(&arg1?)?, &PathBuf::from_str(&arg2?)?)?;
+                    c.affect(&path1?, &path2?)?;
                     writeln!(out, "affected")?;
                 }
                 _ => bail!("unknown command: {cmd:?}"),
@@ -73,4 +69,11 @@ pub trait Callee {
             out.flush()?;
         }
     }
+}
+
+fn urldecode_to_path(s: &str) -> Result<PathBuf> {
+    use std::str::FromStr;
+    let decoded = urlencoding::decode(s)?;
+    let path = PathBuf::from_str(&decoded)?;
+    Ok(path)
 }
