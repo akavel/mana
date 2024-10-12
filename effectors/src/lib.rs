@@ -2,6 +2,9 @@ use anyhow::Result;
 
 use std::path::{Path, PathBuf};
 
+pub const HANDSHAKE_RQ: &str = "com.akavel.mana.v2.rq";
+pub const HANDSHAKE_RS: &str = "com.akavel.mana.v2.rs";
+
 pub trait Callee {
     fn start(args: std::env::Args) -> Result<Self>
     where
@@ -27,10 +30,10 @@ pub trait Callee {
         let handshake = in_lines
             .next()
             .ok_or(anyhow!("expected handshake, got EOF on stdin"))??;
-        if !handshake.starts_with("com.akavel.mana.v1.rq") {
-            bail!("expected v1 handshake, got: {handshake:?}");
+        if !handshake.starts_with(HANDSHAKE_RQ) {
+            bail!("expected v2 handshake, got: {handshake:?}");
         }
-        writeln!(out, "com.akavel.mana.v1.rs")?;
+        writeln!(out, "{}", HANDSHAKE_RS)?;
         out.flush()?;
 
         // Dispatch commands to appropriate trait functions

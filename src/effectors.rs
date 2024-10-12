@@ -2,9 +2,12 @@ use anyhow::{anyhow, bail, Context, Result};
 use log::debug;
 use mlua::prelude::{IntoLua, Lua, LuaMultiValue, LuaTable, LuaValue};
 use path_slash::PathBufExt as _;
-use std::collections::BTreeMap;
-use std::path::{Path, PathBuf};
 use thiserror::Error;
+
+use std::collections::BTreeMap;
+use std::io::{BufReader, Write};
+use std::path::{Path, PathBuf};
+use std::process;
 
 use script::Effectors as Spec;
 
@@ -20,9 +23,26 @@ pub fn serve(mut args: std::env::Args) -> Result<()> {
     }
 }
 
+type ChildProcs = BTreeMap<String, ChildProc>;
+
+pub struct ChildProc {
+    pub proc: process::Child,
+    pub buf_out: BufReader<process::ChildStdout>,
+}
+
+impl ChildProc {
+    pub fn read_line(&mut self) -> Result<String> {
+        use std::io::BufRead;
+        let mut buf = String::new();
+        self.buf_out.read_line(&mut buf)?;
+        Ok(buf)
+    }
+}
+
 pub struct Effectors<'lua> {
     lua: LuaTable<'lua>,
     rust: RustEffectors,
+    child_procs: ChildProcs,
 }
 
 impl<'lua> Effectors<'lua> {
@@ -31,6 +51,7 @@ impl<'lua> Effectors<'lua> {
         let mut rust_effectors = RustEffectors {
             map: BTreeMap::new(),
         };
+        let mut child_procs = ChildProcs::new();
         for (root, cmd) in spec {
             if init_lua_effector(lua, &lua_effectors, root.clone(), cmd.clone()).is_ok() {
                 continue;
@@ -41,6 +62,32 @@ impl<'lua> Effectors<'lua> {
                         .map
                         .insert(root.clone(), Box::new(f_zeroinstall::Effector::new()?));
                 }
+                [s, args @ ..] if s == "*scp" => {
+                    let arg0 = std::env::args().next().unwrap();
+                    let args = ["effector", s]
+                        .into_iter()
+                        .chain(args.iter().map(|s| s.as_ref()));
+                    let mut proc = process::Command::new(arg0)
+                        .args(args)
+                        .stdin(process::Stdio::piped())
+                        .stdout(process::Stdio::piped())
+                        .stderr(process::Stdio::inherit())
+                        .spawn()?;
+                    let buf_out = BufReader::new(proc.stdout.take().unwrap());
+                    let mut child = ChildProc { proc, buf_out };
+                    {
+                        let mut child_in = child.proc.stdin.as_ref().unwrap();
+                        // TODO: print error details in case of error
+                        writeln!(child_in, "{}", effectors::HANDSHAKE_RQ)?;
+                        child_in.flush()?;
+                        let rs = child.read_line()?;
+                        if rs.as_str().trim_end() != effectors::HANDSHAKE_RS {
+                            bail!("expected v2 handshake from {s}, got: {rs:?}");
+                        }
+                    }
+                    // TODO[LATER]: check no duplicates
+                    child_procs.insert(root.clone(), child);
+                }
                 _ => {
                     bail!("unknown effector command: {cmd:?}");
                 }
@@ -49,6 +96,7 @@ impl<'lua> Effectors<'lua> {
         Ok(Self {
             lua: lua_effectors,
             rust: rust_effectors,
+            child_procs,
         })
     }
 
