@@ -63,7 +63,7 @@ impl ChildProc {
             encode(shadow_prefix.to_str().unwrap())
         )?;
         let rs = self.read_line()?;
-        if !rs.starts_with("gathered ") {
+        if !rs.starts_with("gathered") {
             bail!("unexpected 'gather' response: {:?}", rs);
         }
         Ok(())
@@ -79,7 +79,7 @@ impl ChildProc {
             encode(shadow_prefix.to_str().unwrap())
         )?;
         let rs = self.read_line()?;
-        if !rs.starts_with("affected ") {
+        if !rs.starts_with("affected") {
             bail!("unexpected 'affect' response: {:?}", rs);
         }
         Ok(())

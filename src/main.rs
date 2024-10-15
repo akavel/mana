@@ -142,7 +142,13 @@ fn query(script: Script) -> Result<()> {
         let found = effectors.detect(prefix, subpath)?;
         let shadow_path = PathBuf::from(&script.shadow_dir).join(PathBuf::from_slash(path));
         if !found {
-            std::fs::remove_file(shadow_path)?;
+            let removal = std::fs::remove_file(shadow_path);
+            if let Err(ref err) = removal {
+                if err.kind() == std::io::ErrorKind::NotFound {
+                    continue;
+                }
+            }
+            _ = removal?;
             continue;
         }
         effectors.gather(prefix, subpath, &script.shadow_dir)?;
