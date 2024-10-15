@@ -32,6 +32,33 @@ pub struct ChildProc {
 }
 
 impl ChildProc {
+    #[context("spawning effector {name}")]
+    pub fn new_effector(name: &str, args: &[String]) -> Result<Self> {
+        let arg0 = std::env::args().next().unwrap();
+        let args = ["effector", name]
+            .into_iter()
+            .chain(args.iter().map(|s| s.as_ref()));
+        let mut proc = process::Command::new(arg0)
+            .args(args)
+            .stdin(process::Stdio::piped())
+            .stdout(process::Stdio::piped())
+            .stderr(process::Stdio::inherit())
+            .spawn()?;
+        let buf_out = BufReader::new(proc.stdout.take().unwrap());
+        let mut child = ChildProc { proc, buf_out };
+        {
+            let mut child_in = child.proc.stdin.as_ref().unwrap();
+            // TODO: print error details in case of error
+            writeln!(child_in, "{}", effectors::HANDSHAKE_RQ)?;
+            child_in.flush()?;
+            let rs = child.read_line()?;
+            if rs.as_str().trim_end() != effectors::HANDSHAKE_RS {
+                bail!("expected v2 handshake from {name}, got: {rs:?}");
+            }
+        }
+        Ok(child)
+    }
+
     pub fn read_line(&mut self) -> Result<String> {
         use std::io::BufRead;
         let mut buf = String::new();
@@ -111,30 +138,8 @@ impl<'lua> Effectors<'lua> {
                         .insert(root.clone(), Box::new(f_zeroinstall::Effector::new()?));
                 }
                 [s, args @ ..] if s == "*scp" => {
-                    let arg0 = std::env::args().next().unwrap();
-                    let args = ["effector", s]
-                        .into_iter()
-                        .chain(args.iter().map(|s| s.as_ref()));
-                    let mut proc = process::Command::new(arg0)
-                        .args(args)
-                        .stdin(process::Stdio::piped())
-                        .stdout(process::Stdio::piped())
-                        .stderr(process::Stdio::inherit())
-                        .spawn()?;
-                    let buf_out = BufReader::new(proc.stdout.take().unwrap());
-                    let mut child = ChildProc { proc, buf_out };
-                    {
-                        let mut child_in = child.proc.stdin.as_ref().unwrap();
-                        // TODO: print error details in case of error
-                        writeln!(child_in, "{}", effectors::HANDSHAKE_RQ)?;
-                        child_in.flush()?;
-                        let rs = child.read_line()?;
-                        if rs.as_str().trim_end() != effectors::HANDSHAKE_RS {
-                            bail!("expected v2 handshake from {s}, got: {rs:?}");
-                        }
-                    }
                     // TODO[LATER]: check no duplicates
-                    child_procs.insert(root.clone(), child);
+                    child_procs.insert(root.clone(), ChildProc::new_effector(s, args)?);
                 }
                 _ => {
                     bail!("unknown effector command: {cmd:?}");
