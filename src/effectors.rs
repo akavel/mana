@@ -148,6 +148,10 @@ impl<'lua> Effectors<'lua> {
     }
 
     pub fn detect(&mut self, prefix: &str, subpath: &str) -> Result<bool> {
+        if let Some(v) = self.child_procs.get_mut(prefix) {
+            return v.detect(&PathBuf::from_slash(subpath));
+        }
+
         if let Some(r) = self
             .rust
             .maybe_detect(prefix, &PathBuf::from_slash(subpath))
@@ -160,6 +164,12 @@ impl<'lua> Effectors<'lua> {
     }
 
     pub fn gather(&mut self, prefix: &str, subpath: &str, shadow_root: &str) -> Result<()> {
+        if let Some(v) = self.child_procs.get_mut(prefix) {
+            let subpath = &PathBuf::from_slash(subpath);
+            let shadow_root = &PathBuf::from_slash(shadow_root);
+            return v.gather(subpath, &shadow_root.join(prefix));
+        }
+
         let rust_result = self.rust.maybe_gather(
             prefix,
             &PathBuf::from_slash(subpath),
@@ -182,6 +192,12 @@ impl<'lua> Effectors<'lua> {
     }
 
     pub fn affect(&mut self, prefix: &str, subpath: &str, shadow_root: &str) -> Result<()> {
+        if let Some(v) = self.child_procs.get_mut(prefix) {
+            let subpath = &PathBuf::from_slash(subpath);
+            let shadow_root = &PathBuf::from_slash(shadow_root);
+            return v.affect(subpath, &shadow_root.join(prefix));
+        }
+
         let rust_result = self.rust.maybe_affect(
             prefix,
             &PathBuf::from_slash(subpath),
