@@ -116,26 +116,21 @@ impl ChildProc {
 
 pub struct Effectors<'lua> {
     lua: LuaTable<'lua>,
-    rust: RustEffectors,
     child_procs: ChildProcs,
 }
 
 impl<'lua> Effectors<'lua> {
     pub fn init(lua: &'lua Lua, spec: &Spec) -> Result<Effectors<'lua>> {
         let lua_effectors = lua.create_table().unwrap();
-        let mut rust_effectors = RustEffectors {
-            map: BTreeMap::new(),
-        };
         let mut child_procs = ChildProcs::new();
         for (root, cmd) in spec {
             if init_lua_effector(lua, &lua_effectors, root.clone(), cmd.clone()).is_ok() {
                 continue;
             }
             match &cmd[..] {
-                [s] if s == "zeroinstall" => {
-                    rust_effectors
-                        .map
-                        .insert(root.clone(), Box::new(f_zeroinstall::Effector::new()?));
+                [s, args @ ..] if s == "*zeroinstall" => {
+                    // TODO[LATER]: check no duplicates
+                    child_procs.insert(root.clone(), ChildProc::new_effector(s, args)?);
                 }
                 [s, args @ ..] if s == "*scp" => {
                     // TODO[LATER]: check no duplicates
@@ -148,7 +143,6 @@ impl<'lua> Effectors<'lua> {
         }
         Ok(Self {
             lua: lua_effectors,
-            rust: rust_effectors,
             child_procs,
         })
     }
@@ -159,15 +153,8 @@ impl<'lua> Effectors<'lua> {
             return v.detect(&PathBuf::from_slash(subpath));
         }
 
-        if let Some(r) = self
-            .rust
-            .maybe_detect(prefix, &PathBuf::from_slash(subpath))
-        {
-            r
-        } else {
-            call_effector_method(&self.lua, prefix, "exists", subpath)
-                .with_context(|| format!("calling effectors[{prefix:?}]:exists({subpath:?})"))
-        }
+        call_effector_method(&self.lua, prefix, "exists", subpath)
+            .with_context(|| format!("calling effectors[{prefix:?}]:exists({subpath:?})"))
     }
 
     #[context("gathering at {prefix}/{subpath}")]
@@ -178,25 +165,16 @@ impl<'lua> Effectors<'lua> {
             return v.gather(subpath, &shadow_root.join(prefix));
         }
 
-        let rust_result = self.rust.maybe_gather(
+        let shadow_path = PathBuf::from(&shadow_root)
+            .join(prefix)
+            .join(PathBuf::from_slash(subpath));
+        call_effector_method(
+            &self.lua,
             prefix,
-            &PathBuf::from_slash(subpath),
-            &PathBuf::from_slash(shadow_root),
-        );
-        if let Some(rs) = rust_result {
-            rs
-        } else {
-            let shadow_path = PathBuf::from(&shadow_root)
-                .join(prefix)
-                .join(PathBuf::from_slash(subpath));
-            call_effector_method(
-                &self.lua,
-                prefix,
-                "query",
-                (subpath, shadow_path.to_str().unwrap()),
-            )
-            .with_context(|| format!("calling effectors[{prefix:?}]:query({subpath:?})"))
-        }
+            "query",
+            (subpath, shadow_path.to_str().unwrap()),
+        )
+        .with_context(|| format!("calling effectors[{prefix:?}]:query({subpath:?})"))
     }
 
     #[context("affecting at {prefix}/{subpath}")]
@@ -207,25 +185,16 @@ impl<'lua> Effectors<'lua> {
             return v.affect(subpath, &shadow_root.join(prefix));
         }
 
-        let rust_result = self.rust.maybe_affect(
+        let shadow_path = PathBuf::from(&shadow_root)
+            .join(prefix)
+            .join(PathBuf::from_slash(subpath));
+        call_effector_method(
+            &self.lua,
             prefix,
-            &PathBuf::from_slash(subpath),
-            &PathBuf::from_slash(shadow_root),
-        );
-        if let Some(rs) = rust_result {
-            rs
-        } else {
-            let shadow_path = PathBuf::from(&shadow_root)
-                .join(prefix)
-                .join(PathBuf::from_slash(subpath));
-            call_effector_method(
-                &self.lua,
-                prefix,
-                "apply",
-                (subpath, shadow_path.to_str().unwrap()),
-            )
-            .with_context(|| format!("calling effectors[{prefix:?}]:apply({subpath:?})"))
-        }
+            "apply",
+            (subpath, shadow_path.to_str().unwrap()),
+        )
+        .with_context(|| format!("calling effectors[{prefix:?}]:apply({subpath:?})"))
     }
 }
 
@@ -288,36 +257,4 @@ fn call_effector_method<'a, V: mlua::FromLuaMulti<'a>>(
     };
     let res: V = f.call(args)?;
     Ok(res)
-}
-
-struct RustEffectors {
-    map: BTreeMap<String, Box<dyn effectors::Callee>>,
-}
-
-impl RustEffectors {
-    fn maybe_detect(&mut self, prefix: &str, subpath: &Path) -> Option<Result<bool>> {
-        self.map.get_mut(prefix).map(|h| h.detect(subpath))
-    }
-
-    fn maybe_gather(
-        &mut self,
-        prefix: &str,
-        subpath: &Path,
-        shadow_root: &Path,
-    ) -> Option<Result<()>> {
-        self.map
-            .get_mut(prefix)
-            .map(|h| h.gather(subpath, &shadow_root.join(prefix)))
-    }
-
-    fn maybe_affect(
-        &mut self,
-        prefix: &str,
-        subpath: &Path,
-        shadow_root: &Path,
-    ) -> Option<Result<()>> {
-        self.map
-            .get_mut(prefix)
-            .map(|h| h.affect(subpath, &shadow_root.join(prefix)))
-    }
 }

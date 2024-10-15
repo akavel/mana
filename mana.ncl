@@ -31,7 +31,7 @@ let module = {
     c | default = "lua53 effectors/winfs.lua FIXME-UUID",
     path = "lua53 effectors/winpath.lua",
     home = "lua53 effectors/winhome.lua",
-    zeroinstall = "zeroinstall",
+    zeroinstall = "*zeroinstall",
     scp = "*scp --host 192.168.0.16 --user pi --key-path /prog/0-keys/rpi.pem",
 # TODO[LATER]: `handle 0install lua53 effectors/zeroinstall.lua`
 # TODO[LATER]: `handle choco lua53 effectors/chocolatey.lua`
