@@ -980,6 +980,7 @@ dependencies = [
  "thiserror",
  "unicase",
  "url",
+ "urlencoding",
 ]
 
 [[package]]

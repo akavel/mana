@@ -44,4 +44,5 @@ peg = "0.8.2"
 thiserror = "1.0.56"
 unicase = "2.7.0"
 url = "2.5.0"
+urlencoding = "2.1.3"
 

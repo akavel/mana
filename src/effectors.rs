@@ -37,6 +37,53 @@ impl ChildProc {
         self.buf_out.read_line(&mut buf)?;
         Ok(buf)
     }
+
+    pub fn detect(&mut self, path: &Path) -> Result<bool> {
+        let mut child_in = self.proc.stdin.as_ref().unwrap();
+        writeln!(
+            child_in,
+            "detect {}",
+            urlencoding::encode(path.to_str().unwrap())
+        )?;
+        let rs = self.read_line()?;
+        match rs.trim_end() {
+            "detected present" => Ok(true),
+            "detected absent" => Ok(false),
+            _ => bail!("unexpected 'detect' response: {:?}", rs),
+        }
+    }
+
+    pub fn gather(&mut self, path: &Path, shadow_prefix: &Path) -> Result<()> {
+        use urlencoding::encode;
+        let mut child_in = self.proc.stdin.as_ref().unwrap();
+        writeln!(
+            child_in,
+            "gather {} {}",
+            encode(path.to_str().unwrap()),
+            encode(shadow_prefix.to_str().unwrap())
+        )?;
+        let rs = self.read_line()?;
+        if !rs.starts_with("gathered ") {
+            bail!("unexpected 'gather' response: {:?}", rs);
+        }
+        Ok(())
+    }
+
+    pub fn affect(&mut self, path: &Path, shadow_prefix: &Path) -> Result<()> {
+        use urlencoding::encode;
+        let mut child_in = self.proc.stdin.as_ref().unwrap();
+        writeln!(
+            child_in,
+            "affect {} {}",
+            encode(path.to_str().unwrap()),
+            encode(shadow_prefix.to_str().unwrap())
+        )?;
+        let rs = self.read_line()?;
+        if !rs.starts_with("affected ") {
+            bail!("unexpected 'affect' response: {:?}", rs);
+        }
+        Ok(())
+    }
 }
 
 pub struct Effectors<'lua> {
