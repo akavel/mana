@@ -970,6 +970,7 @@ dependencies = [
  "env_logger",
  "f-ssh",
  "f-zeroinstall",
+ "fn-error-context",
  "git2",
  "itertools 0.13.0",
  "log",

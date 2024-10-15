@@ -1,4 +1,5 @@
 use anyhow::{anyhow, bail, Context, Result};
+use fn_error_context::context;
 use log::debug;
 use mlua::prelude::{IntoLua, Lua, LuaMultiValue, LuaTable, LuaValue};
 use path_slash::PathBufExt as _;
@@ -147,6 +148,7 @@ impl<'lua> Effectors<'lua> {
         })
     }
 
+    #[context("detecting at {prefix}/{subpath}")]
     pub fn detect(&mut self, prefix: &str, subpath: &str) -> Result<bool> {
         if let Some(v) = self.child_procs.get_mut(prefix) {
             return v.detect(&PathBuf::from_slash(subpath));
@@ -163,6 +165,7 @@ impl<'lua> Effectors<'lua> {
         }
     }
 
+    #[context("gathering at {prefix}/{subpath}")]
     pub fn gather(&mut self, prefix: &str, subpath: &str, shadow_root: &str) -> Result<()> {
         if let Some(v) = self.child_procs.get_mut(prefix) {
             let subpath = &PathBuf::from_slash(subpath);
@@ -191,6 +194,7 @@ impl<'lua> Effectors<'lua> {
         }
     }
 
+    #[context("affecting at {prefix}/{subpath}")]
     pub fn affect(&mut self, prefix: &str, subpath: &str, shadow_root: &str) -> Result<()> {
         if let Some(v) = self.child_procs.get_mut(prefix) {
             let subpath = &PathBuf::from_slash(subpath);
