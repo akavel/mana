@@ -4,7 +4,8 @@ use toml::macros::Deserialize;
 
 pub fn from_file(ncl_path: PathBuf) -> Result<toml::Table> {
     let username = whoami::username();
-    let hostname = whoami::hostname();
+    let mut hostname = whoami::fallible::hostname()?;
+    hostname.make_ascii_lowercase();
     let field_path_raw = format!("{username}@{hostname}");
 
     use nickel_lang_core::{
@@ -29,4 +30,3 @@ pub fn from_file(ncl_path: PathBuf) -> Result<toml::Table> {
     let toml = toml::Table::deserialize(term).context("loading Nickel output to TOML")?;
     Ok(toml)
 }
-

@@ -7,5 +7,5 @@ edition = "2021"
 anyhow = "1.0.79"
 nickel-lang-core = { version = "0.8.0", default-features = false }
 toml = { version = "0.8.8", features = ["preserve_order"] }
-whoami = { version = "1.4.1", default-features = false }
+whoami = { version = "1.5.0", default-features = false }
 
