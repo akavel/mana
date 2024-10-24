@@ -137,6 +137,10 @@ impl<'lua> Effectors<'lua> {
                     // TODO[LATER]: check no duplicates
                     child_procs.insert(root.clone(), ChildProc::new_effector(s, args)?);
                 }
+                [s, args @ ..] if s == "*lua" => {
+                    // TODO[LATER]: check no duplicates
+                    child_procs.insert(root.clone(), ChildProc::new_effector(s, args)?);
+                }
                 _ => {
                     bail!("unknown effector command: {cmd:?}");
                 }

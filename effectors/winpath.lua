@@ -17,6 +17,10 @@ local function powershell(cmd)
   return 'powershell -command " ' .. cmd .. ' "'
 end
 
+function winpath.init()
+  return winpath
+end
+
 function winpath.exists(path)
   local ospath = simplify(winfs.ospath(path))
   for p in winpath.iter() do

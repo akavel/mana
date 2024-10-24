@@ -5,6 +5,9 @@ _G.arg = nil
 
 local winfs = require 'effectors.winfs'
 
+function winhome.init()
+  return winhome
+end
 function winhome.exists(path)
   return winfs.osexists(winhome.ospath(path))
 end

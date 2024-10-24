@@ -108,14 +108,21 @@ impl effectors::Callee for Effector {
     }
 
     fn detect(&mut self, path: &Path) -> Result<bool> {
+        // FIXME: `path` should be slash'ed on input here
         self.call_method("exists", path.to_str().unwrap())
     }
 
     fn gather(&mut self, path: &Path, shadow_prefix: &Path) -> Result<()> {
-        todo!();
+        let shadow_path = shadow_prefix.join(path);
+        // FIXME: `path` should be slash'ed on input here
+        let path = path.to_str().unwrap();
+        self.call_method("query", (path, shadow_path.to_str().unwrap()))
     }
 
     fn affect(&mut self, path: &Path, shadow_prefix: &Path) -> Result<()> {
-        todo!();
+        let shadow_path = shadow_prefix.join(path);
+        // FIXME: `path` should be slash'ed on input here
+        let path = path.to_str().unwrap();
+        self.call_method("apply", (path, shadow_path.to_str().unwrap()))
     }
 }
