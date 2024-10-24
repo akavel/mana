@@ -65,12 +65,31 @@ impl Effector {
             .collect();
         // call `init($args...)`
         let obj_: LuaValue = init.call(args_)?;
-        let LuaValue::Table(ref obj) = obj_ else {
+        let LuaValue::Table(_) = obj_ else {
             bail!("*lua expected a table from `require({name:?}).init(...)`, got: {obj_:?}");
         };
         // store result in `_G._MANA`
         let _ = g.set(MANA_GLOBAL, obj_)?;
         Ok(())
+    }
+
+    fn call_method<'a, Ret: mlua::FromLuaMulti<'a>>(
+        &'a self,
+        method: &str,
+        args: impl mlua::IntoLuaMulti<'a>,
+    ) -> Result<Ret> {
+        let lua = &self.lua;
+        let obj_: LuaValue = lua.globals().get(MANA_GLOBAL)?;
+        let LuaValue::Table(ref obj) = obj_ else {
+            bail!("*lua expected a table at `_G.{MANA_GLOBAL}`, got: {obj_:?}");
+        };
+        let func_: LuaValue = obj.get(method)?;
+        let LuaValue::Function(ref func) = func_ else {
+            bail!("*lua expected a function at `_G.{MANA_GLOBAL}.{method}`, got: {func_:?}");
+        };
+        // FIXME: change .unwrap() to .ok_or_else(...)
+        let ret: Ret = func.call(args)?;
+        Ok(ret)
     }
 }
 
@@ -89,18 +108,7 @@ impl effectors::Callee for Effector {
     }
 
     fn detect(&mut self, path: &Path) -> Result<bool> {
-        let lua = &self.lua;
-        let obj_: LuaValue = lua.globals().get(MANA_GLOBAL)?;
-        let LuaValue::Table(ref obj) = obj_ else {
-            bail!("*lua expected a table at `_G.{MANA_GLOBAL}`, got: {obj_:?}");
-        };
-        let func_: LuaValue = obj.get("exists")?;
-        let LuaValue::Function(ref func) = func_ else {
-            bail!("*lua expected a function at `_G.{MANA_GLOBAL}.exists`, got: {func_:?}");
-        };
-        // FIXME: change .unwrap() to .ok_or_else(...)
-        let res: bool = func.call(path.to_str().unwrap())?;
-        Ok(res)
+        self.call_method("exists", path.to_str().unwrap())
     }
 
     fn gather(&mut self, path: &Path, shadow_prefix: &Path) -> Result<()> {
