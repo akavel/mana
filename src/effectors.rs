@@ -18,8 +18,9 @@ pub fn serve(mut args: std::env::Args) -> Result<()> {
     };
     use effectors::Callee;
     match name.as_str() {
-        "*zeroinstall" => f_zeroinstall::Effector::serve(args),
+        "*lua" => f_lua::Effector::serve(args),
         "*scp" => f_scp::Effector::serve(args),
+        "*zeroinstall" => f_zeroinstall::Effector::serve(args),
         _ => Err(anyhow!("unknown effector name: {name:?}")),
     }
 }

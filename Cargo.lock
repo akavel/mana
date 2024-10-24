@@ -457,6 +457,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "f-lua"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "effectors",
+ "fn-error-context",
+ "mlua",
+]
+
+[[package]]
 name = "f-scp"
 version = "0.1.0"
 dependencies = [
@@ -968,6 +978,7 @@ dependencies = [
  "clap",
  "effectors",
  "env_logger",
+ "f-lua",
  "f-scp",
  "f-zeroinstall",
  "fn-error-context",

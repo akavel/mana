@@ -3,7 +3,7 @@ local systemctl = {}
 local arg = arg
 _G.arg = nil
 
-local posixfs = require 'handler.posixfs'
+local posixfs = require 'effectors.posixfs'
 
 local function exec(cmd)
   local p = io.popen(cmd, 'r')
