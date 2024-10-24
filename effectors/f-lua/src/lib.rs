@@ -22,28 +22,67 @@ impl Effector {
 
     fn load_pkg(&self, name: &str, code: &str) {
         // Load, parse, and evaluate `code` into Lua.
-        let chunk = self.lua.load(code).set_name(name).eval::<LuaValue>().unwrap();
+        let lib_ = self.lua.load(code).set_name(name).eval::<LuaValue>().unwrap();
         // Expect the result of the evaluation to be a Lua table.
-        let LuaValue::Table(ref t_chunk) = chunk else {
-            panic!("*lua {name} expected to return a table, but got: {chunk:?}");
+        let LuaValue::Table(ref lib) = lib_ else {
+            panic!("*lua {name} expected to return a table, but got: {lib_:?}");
         };
         // Assign the table into `package.loaded[$name]` in Lua
-        let package: LuaValue = self.lua.globals().get("package").unwrap();
-        let LuaValue::Table(ref t_package) = package else {
+        let package_: LuaValue = self.lua.globals().get("package").unwrap();
+        let LuaValue::Table(ref package) = package_ else {
             panic!("*lua failed to find _G.package table");
         };
-        let loaded: LuaValue = t_package.get("loaded").unwrap();
-        let LuaValue::Table(ref t_loaded) = loaded else {
+        let loaded_: LuaValue = package.get("loaded").unwrap();
+        let LuaValue::Table(ref loaded) = loaded_ else {
             panic!("*lua failed to find _G.package.loaded table");
         };
-        t_loaded.set(name, t_chunk.clone()).unwrap();
+        loaded.set(name, lib.clone()).unwrap();
+    }
+
+    // Initialize a Lua effector package. Runs a Lua script:
+    // `_G._MANA = require($name).init(table.unpack($args))`
+    #[context("*lua initializing effector {name:?}")]
+    fn init_pkg(&self, name: &str, args: std::env::Args) -> Result<()> {
+        let lua = &self.lua;
+        let g = lua.globals();
+        let require_: LuaValue = g.get("require").unwrap();
+        let LuaValue::Function(ref require) = require_ else {
+            panic!("*lua failed to find _G.require function");
+        };
+        let lib_: LuaValue = require.call(name)?;
+        let LuaValue::Table(ref lib) = lib_ else {
+            bail!("*lua expected a table from `require({name:?})`, got: {lib_:?}");
+        };
+        let init_: LuaValue = lib.get("init")?;
+        let LuaValue::Function(ref init) = init_ else {
+            bail!("*lua expected a function at `require({name:?}).init`, got: {init_:?}");
+        };
+        // collect args to pass to init()
+        let args_: LuaMultiValue = args.into_iter()
+            .map(|a| LuaValue::String(lua.create_string(a).unwrap()))
+            .collect();
+        // call `init($args...)`
+        let obj_: LuaValue = init.call(args_)?;
+        let LuaValue::Table(ref obj) = obj_ else {
+            bail!("*lua expected a table from `require({name:?}).init(...)`, got: {obj_:?}");
+        };
+        // store result in `_G._MANA`
+        g.set(MANA_GLOBAL, obj_);
+        Ok(())
     }
 }
 
+const MANA_GLOBAL: &str = "_MANA";
+
 impl effectors::Callee for Effector {
-    fn start(args: std::env::Args) -> Result<Self> {
+    fn start(mut args: std::env::Args) -> Result<Self> {
         let f = Self { lua: Lua::new() };
         f.load_embedded_packages();
+        let pkg = args.next();
+        let Some(pkg) = pkg else {
+            bail!("*lua requires an argument: name of a Lua-based effector package");
+        };
+        f.init_pkg(&pkg, args)?;
         Ok(f)
     }
 
