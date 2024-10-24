@@ -21,14 +21,15 @@ impl Effector {
     }
 
     fn load_pkg(&self, name: &str, code: &str) {
+        let lua = &self.lua;
         // Load, parse, and evaluate `code` into Lua.
-        let lib_ = self.lua.load(code).set_name(name).eval::<LuaValue>().unwrap();
+        let lib_: LuaValue = lua.load(code).set_name(name).eval().unwrap();
         // Expect the result of the evaluation to be a Lua table.
         let LuaValue::Table(ref lib) = lib_ else {
             panic!("*lua {name} expected to return a table, but got: {lib_:?}");
         };
         // Assign the table into `package.loaded[$name]` in Lua
-        let package_: LuaValue = self.lua.globals().get("package").unwrap();
+        let package_: LuaValue = lua.globals().get("package").unwrap();
         let LuaValue::Table(ref package) = package_ else {
             panic!("*lua failed to find _G.package table");
         };
@@ -58,7 +59,8 @@ impl Effector {
             bail!("*lua expected a function at `require({name:?}).init`, got: {init_:?}");
         };
         // collect args to pass to init()
-        let args_: LuaMultiValue = args.into_iter()
+        let args_: LuaMultiValue = args
+            .into_iter()
             .map(|a| LuaValue::String(lua.create_string(a).unwrap()))
             .collect();
         // call `init($args...)`
