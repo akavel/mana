@@ -69,7 +69,7 @@ impl Effector {
             bail!("*lua expected a table from `require({name:?}).init(...)`, got: {obj_:?}");
         };
         // store result in `_G._MANA`
-        g.set(MANA_GLOBAL, obj_);
+        let _ = g.set(MANA_GLOBAL, obj_)?;
         Ok(())
     }
 }
@@ -89,7 +89,18 @@ impl effectors::Callee for Effector {
     }
 
     fn detect(&mut self, path: &Path) -> Result<bool> {
-        todo!();
+        let lua = &self.lua;
+        let obj_: LuaValue = lua.globals().get(MANA_GLOBAL)?;
+        let LuaValue::Table(ref obj) = obj_ else {
+            bail!("*lua expected a table at `_G.{MANA_GLOBAL}`, got: {obj_:?}");
+        };
+        let func_: LuaValue = obj.get("exists")?;
+        let LuaValue::Function(ref func) = func_ else {
+            bail!("*lua expected a function at `_G.{MANA_GLOBAL}.exists`, got: {func_:?}");
+        };
+        // FIXME: change .unwrap() to .ok_or_else(...)
+        let res: bool = func.call(path.to_str().unwrap())?;
+        Ok(res)
     }
 
     fn gather(&mut self, path: &Path, shadow_prefix: &Path) -> Result<()> {
