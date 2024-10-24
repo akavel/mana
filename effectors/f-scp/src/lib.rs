@@ -26,7 +26,7 @@ pub struct Effector {
 }
 
 impl Effector {
-    #[context("creating SSH effector for {}@{}, key {:?}", &args.user, &args.host, &args.key_path)]
+    #[context("creating *scp effector for {}@{}, key {:?}", &args.user, &args.host, &args.key_path)]
     pub fn new(args: Args) -> Result<Self> {
         let opts = SshOpts::new(&args.host).username(&args.user);
         let opts = match (&args.key_agent, &args.key_path) {
@@ -60,12 +60,12 @@ impl effectors::Callee for Effector {
         Effector::new(args)
     }
 
-    #[context("detecting SSH {path:?}")]
+    #[context("*scp detecting {path:?}")]
     fn detect(&mut self, path: &Path) -> Result<bool> {
         Ok(self.client.exists(path)?)
     }
 
-    #[context("gathering SSH {path:?} to {shadow_prefix:?}")]
+    #[context("*scp gathering {path:?} to {shadow_prefix:?}")]
     fn gather(&mut self, path: &Path, shadow_prefix: &Path) -> Result<()> {
         let mut r = self.client.open(path)?;
         let mut w = File::create(shadow_prefix.join(path))?;
@@ -73,7 +73,7 @@ impl effectors::Callee for Effector {
         Ok(())
     }
 
-    #[context("affecting {path:?} to SSH {shadow_prefix:?}")]
+    #[context("*scp affecting {path:?} to {shadow_prefix:?}")]
     fn affect(&mut self, path: &Path, shadow_prefix: &Path) -> Result<()> {
         let maybe_r = File::open(shadow_prefix.join(path));
         // Handle file-not-found scenario - remove remote file

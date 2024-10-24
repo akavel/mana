@@ -22,13 +22,13 @@ path = "src/main.rs"
 [workspace]
 members = [
     "effectors",
-    "effectors/f-ssh",
+    "effectors/f-scp",
     "script",
 ]
 
 [dependencies]
 effectors = { path = "effectors" }
-f-ssh = { path = "effectors/f-ssh" }
+f-scp = { path = "effectors/f-scp" }
 f-zeroinstall = { path = "effectors/f-zeroinstall" }
 script = { path = "script" }
 anyhow = "1.0.79"

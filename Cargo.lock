@@ -457,7 +457,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "f-ssh"
+name = "f-scp"
 version = "0.1.0"
 dependencies = [
  "anyhow",
@@ -968,7 +968,7 @@ dependencies = [
  "clap",
  "effectors",
  "env_logger",
- "f-ssh",
+ "f-scp",
  "f-zeroinstall",
  "fn-error-context",
  "git2",
