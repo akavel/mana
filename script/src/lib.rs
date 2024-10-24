@@ -99,6 +99,22 @@ impl Script {
     }
 
     pub fn validate(&self) -> ValidationResult {
+        use ValidationError::*;
+        // TODO: instead, canonicalize path & detect diff, to also find `/../` etc.
+        // TODO: also, find dupes in paths, incl. case-insensitively
+        fn path_error_of(p: &String) -> Option<ValidationError> {
+            if p.ends_with("/") {
+                return Some(TrailingSlashInPath(p.clone()));
+            } else if p.contains("//") {
+                return Some(DoubleSlashInPath(p.clone()));
+            } else if p.contains("/../") {
+                return Some(DoubleDotInPath(p.clone()));
+            }
+            None
+        }
+        if let Some(err) = self.paths.keys().flat_map(path_error_of).next() {
+            return Err(err);
+        }
         Ok(())
     }
 }
@@ -108,6 +124,10 @@ impl Script {
 pub enum ValidationError {
     #[error("path `{0}` contains double slash `//`")]
     DoubleSlashInPath(String),
+    #[error("path `{0}` ends with a slash `/`")]
+    TrailingSlashInPath(String),
+    #[error("path `{0}` contains double dot `/../`")]
+    DoubleDotInPath(String),
 }
 
 type ValidationResult = std::result::Result<(), ValidationError>;
@@ -121,18 +141,37 @@ mod tests {
     }
 
     #[test]
-    fn validate_no_double_slash_in_paths() {
-        type S = Script;
-        type P = PathContentMap;
-        use ValidationError::*;
-        let dflt = S::default();
-        assert_eq!(
-            S {
-                paths: P::from([(s("foo//bar"), s(""))]),
-                ..dflt
+    fn validate_problems_in_paths() {
+        // validate a Script built with given paths
+        fn vsp<'a>(paths: impl IntoIterator<Item = &'a str>) -> ValidationResult {
+            Script {
+                paths: paths
+                    .into_iter()
+                    .map(|s| (s.to_string(), "".to_string()))
+                    .collect(),
+                ..<_>::default()
             }
-            .validate(),
-            Err(DoubleSlashInPath(s("foo//bar"))),
+            .validate()
+        }
+
+        use ValidationError::*;
+        assert_eq!(vsp(["a/../b"]), Err(DoubleDotInPath(s("a/../b"))));
+        assert_eq!(vsp(["foo//bar"]), Err(DoubleSlashInPath(s("foo//bar"))));
+        assert_eq!(
+            vsp(["foo/bar//baz"]),
+            Err(DoubleSlashInPath(s("foo/bar//baz")))
+        );
+        assert_eq!(
+            vsp(["ok_a/ok_b", "foo/bar//baz"]),
+            Err(DoubleSlashInPath(s("foo/bar//baz")))
+        );
+        assert_eq!(
+            vsp(["ok_a/ok_b", "foo/bar/"]),
+            Err(TrailingSlashInPath(s("foo/bar/")))
+        );
+        assert_eq!(
+            vsp(["ok_a/ok_b", "foo/"]),
+            Err(TrailingSlashInPath(s("foo/")))
         );
     }
 }
