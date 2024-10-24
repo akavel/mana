@@ -6,6 +6,5 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.79"
 log = "0.4.22"
-nickel-lang-core = { version = "0.8.0", default-features = false }
+parse_ncl = { path = "parse_ncl" }
 toml = { version = "0.8.8", features = ["preserve_order"] }
-whoami = { version = "1.4.1", default-features = false }

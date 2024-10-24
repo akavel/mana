@@ -1155,6 +1155,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "parse_ncl"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "nickel-lang-core",
+ "toml 0.8.8",
+ "whoami",
+]
+
+[[package]]
 name = "path-slash"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1404,9 +1414,8 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "log",
- "nickel-lang-core",
+ "parse_ncl",
  "toml 0.8.8",
- "whoami",
 ]
 
 [[package]]
