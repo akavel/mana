@@ -20,11 +20,6 @@ path = "src/main.rs"
 #path = "handler/zeroinst.rs"
 
 [workspace]
-members = [
-    "effectors",
-    "effectors/f-scp",
-    "script",
-]
 
 [dependencies]
 effectors = { path = "effectors" }
