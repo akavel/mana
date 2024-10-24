@@ -1,8 +1,8 @@
-use anyhow::Result;
+use anyhow::{bail, Result};
 use clap::Parser;
 use fn_error_context::context;
 use remotefs::RemoteFs;
-use remotefs_ssh::{ScpFs, SshOpts};
+use remotefs_ssh::{ScpFs, SshAgentIdentity, SshOpts};
 
 use std::fs::File;
 use std::io::ErrorKind;
@@ -15,7 +15,9 @@ pub struct Args {
     #[arg(long)]
     user: String,
     #[arg(long)]
-    key_path: PathBuf,
+    key_path: Option<PathBuf>,
+    #[arg(long)]
+    key_agent: bool,
     // TODO: add base_dir
 }
 
@@ -26,12 +28,15 @@ pub struct Effector {
 impl Effector {
     #[context("creating SSH effector for {}@{}, key {:?}", &args.user, &args.host, &args.key_path)]
     pub fn new(args: Args) -> Result<Self> {
-        let mut client: ScpFs = SshOpts::new(&args.host)
-            .username(&args.user)
-            .key_storage(Box::new(SshKeyPath {
-                path: args.key_path.clone(),
-            }))
-            .into();
+        let opts = SshOpts::new(&args.host).username(&args.user);
+        let opts = match (&args.key_agent, &args.key_path) {
+            (false, None) | (true, Some(..)) => {
+                bail!("*scp requires exactly one of: --key-path OR --key-agent")
+            }
+            (false, Some(path)) => opts.key_storage(Box::new(SshKeyPath { path: path.clone() })),
+            (true, None) => opts.ssh_agent_identity(Some(SshAgentIdentity::All)),
+        };
+        let mut client = ScpFs::from(opts);
         client.connect()?;
         Ok(Self { client })
     }
