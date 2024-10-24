@@ -1,9 +1,12 @@
 use anyhow::{bail, Result};
 use log::debug;
+use thiserror::Error;
+
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 
 #[derive(Debug)]
+#[cfg_attr(test, derive(Default))]
 pub struct Script {
     pub shadow_dir: String,
     pub effectors: Effectors,
@@ -93,5 +96,43 @@ impl Script {
             effectors,
             paths,
         })
+    }
+
+    pub fn validate(&self) -> ValidationResult {
+        Ok(())
+    }
+}
+
+#[derive(Error, Debug)]
+#[cfg_attr(test, derive(PartialEq))]
+pub enum ValidationError {
+    #[error("path `{0}` contains double slash `//`")]
+    DoubleSlashInPath(String),
+}
+
+type ValidationResult = std::result::Result<(), ValidationError>;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn s(string: &str) -> String {
+        string.to_string()
+    }
+
+    #[test]
+    fn validate_no_double_slash_in_paths() {
+        type S = Script;
+        type P = PathContentMap;
+        use ValidationError::*;
+        let dflt = S::default();
+        assert_eq!(
+            S {
+                paths: P::from([(s("foo//bar"), s(""))]),
+                ..dflt
+            }
+            .validate(),
+            Err(DoubleSlashInPath(s("foo//bar"))),
+        );
     }
 }

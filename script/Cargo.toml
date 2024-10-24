@@ -5,6 +5,8 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.79"
+#assert_matches = "1.5.0" # TODO: replace with std when assert_matches stabilizes
 log = "0.4.22"
 parse_ncl = { path = "parse_ncl" }
+thiserror = "1.0.56"
 toml = { version = "0.8.8", features = ["preserve_order"] }

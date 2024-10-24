@@ -67,6 +67,7 @@ fn main() -> Result<()> {
     debug!("Hello, world!");
 
     let script = Script::parse_ncl_file(cli.ncl)?;
+    script.validate()?;
     match &cli.command {
         Command::Query => query(script),
         Command::Draft => draft(script),
