@@ -18,11 +18,13 @@ pub struct Args {
     key_path: Option<PathBuf>,
     #[arg(long)]
     key_agent: bool,
-    // TODO: add base_dir
+    #[arg(long)]
+    base_dir: Option<PathBuf>,
 }
 
 pub struct Effector {
     client: ScpFs,
+    base_dir: Option<PathBuf>,
 }
 
 impl Effector {
@@ -38,7 +40,17 @@ impl Effector {
         };
         let mut client = ScpFs::from(opts);
         client.connect()?;
-        Ok(Self { client })
+        Ok(Self {
+            client,
+            base_dir: args.base_dir.clone(),
+        })
+    }
+
+    fn based(&self, path: &Path) -> PathBuf {
+        match &self.base_dir {
+            None => path.to_path_buf(),
+            Some(dir) => dir.join(path),
+        }
     }
 }
 
@@ -62,12 +74,12 @@ impl effectors::Callee for Effector {
 
     #[context("*scp detecting {path:?}")]
     fn detect(&mut self, path: &Path) -> Result<bool> {
-        Ok(self.client.exists(path)?)
+        Ok(self.client.exists(&self.based(path))?)
     }
 
     #[context("*scp gathering {path:?} to {shadow_prefix:?}")]
     fn gather(&mut self, path: &Path, shadow_prefix: &Path) -> Result<()> {
-        let mut r = self.client.open(path)?;
+        let mut r = self.client.open(&self.based(path))?;
         let mut w = File::create(shadow_prefix.join(path))?;
         std::io::copy(&mut r, &mut w)?;
         Ok(())
@@ -80,14 +92,14 @@ impl effectors::Callee for Effector {
         // TODO: merge two ifs once let-chains are stabilized
         if let Err(ref err) = maybe_r {
             if err.kind() == ErrorKind::NotFound {
-                self.client.remove_file(path)?;
+                self.client.remove_file(&self.based(path))?;
                 return Ok(());
             }
         }
         let mut r = maybe_r?;
 
         let meta = r.metadata()?;
-        let mut w = self.client.create(path, &meta.into())?;
+        let mut w = self.client.create(&self.based(path), &meta.into())?;
         std::io::copy(&mut r, &mut w)?;
         Ok(())
     }
