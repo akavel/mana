@@ -107,8 +107,8 @@ fn query(script: Script) -> Result<()> {
         if entry.kind() == Some(git2::ObjectType::Blob) {
             let name = entry.name().unwrap();
             let slash_path = root.to_string() + name;
-            if ignores.contains(first_segment_of_path(slash_path)) {
-                continue;
+            if script.ignores_path(&slash_path) {
+                return git2::TreeWalkResult::Skip;
             }
             // TODO: also check if entry already existed here
             case_insensitive_paths.insert(slash_path.clone().into(), slash_path.clone());
@@ -120,7 +120,7 @@ fn query(script: Script) -> Result<()> {
     //     println!(" - {k:?}");
     // }
     for path in script.paths.keys() {
-        if ignores.contains(first_segment_of_path(path)) {
+        if script.ignores_path(&path) {
             bail!("Path {path:?} from script matches an ignored prefix");
         }
         let unicase = path.clone().into();
@@ -182,8 +182,8 @@ fn draft(script: Script) -> Result<()> {
         if entry.kind() == Some(git2::ObjectType::Blob) {
             let name = entry.name().unwrap();
             let slash_path = root.to_string() + name;
-            if ignores.contains(first_segment_of_path(slash_path)) {
-                continue;
+            if script.ignores_path(&slash_path) {
+                return git2::TreeWalkResult::Skip;
             }
             // FIXME: bring back case_insensitive_paths
             // TODO: also check if entry already existed here
@@ -197,10 +197,10 @@ fn draft(script: Script) -> Result<()> {
 
     // TODO[LATER]: validate that paths were not already added (and do it case insensitively)
     // TODO[LATER]: allow case-sensitive check with an explicit CLI flag
-    let dir = Dir::open_ambient_dir(script.shadow_dir, ambient_authority())?;
-    for (path, contents) in script.paths {
+    let dir = Dir::open_ambient_dir(script.shadow_dir.clone(), ambient_authority())?;
+    for (path, contents) in &script.paths {
         debug!(" - {path}");
-        if ignores.contains(first_segment_of_path(path)) {
+        if script.ignores_path(&path) {
             bail!("Path {path:?} from script matches an ignored prefix");
         }
         // TODO[LATER]: try if things will "just work" on Windows without explicit from_slash conversions
@@ -210,7 +210,7 @@ fn draft(script: Script) -> Result<()> {
         }
         dir.write(&path, contents).context("in shadow_dir")?;
 
-        paths.remove(&path);
+        paths.remove(path);
     }
 
     // Delete files found on disk but not found in script
@@ -235,7 +235,7 @@ fn apply(script: Script) -> Result<()> {
     let mut stat_opt = git2::StatusOptions::new();
     stat_opt.include_untracked(true);
     stat_opt.recurse_untracked_dirs(true);
-    for ign in ignores {
+    for ign in script.ignores {
         stat_opt.pathspec("^/".to_owned() + ign.as_ref());
     }
     // stat_opt.include_unmodified(true);
@@ -295,8 +295,4 @@ fn split_effector_path(path: &str) -> (&str, &str) {
     let (start, rest) = path.split_at(idx);
     let (_slash, end) = rest.split_at(1);
     (start, end)
-}
-
-fn first_segment_of_path(path: &str) -> &str {
-    path.split('/').next().unwrap()
 }

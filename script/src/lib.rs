@@ -132,6 +132,11 @@ impl Script {
         }
         Ok(())
     }
+
+    pub fn ignores_path(&self, path: &str) -> bool {
+        let first_segment_of_path = path.split('/').next().unwrap();
+        self.ignores.iter().any(|ign| ign == first_segment_of_path)
+    }
 }
 
 #[derive(Error, Debug)]
