@@ -4,8 +4,6 @@ use cap_std::fs::Dir;
 use clap::{Parser, Subcommand};
 use git2::Repository;
 use log::debug;
-// mlua::prelude::* except ErrorContext; TODO: can we do simpler?
-use mlua::prelude::Lua;
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 // Trait for extending std::path::PathBuf
@@ -97,8 +95,7 @@ fn query(script: Script) -> Result<()> {
     }
 
     // Initialize effectors
-    let lua = Lua::new();
-    let mut effectors = Effectors::init(&lua, &script.effectors)?;
+    let mut effectors = Effectors::init(&script.effectors)?;
 
     // Make a list of paths in 'tree' and in git
     let head = repo.head()?;
@@ -218,8 +215,7 @@ fn apply(script: Script) -> Result<()> {
     let repo = open_shadow_repo(&script)?;
 
     // Initialize effectors
-    let lua = Lua::new();
-    let mut effectors = Effectors::init(&lua, &script.effectors)?;
+    let mut effectors = Effectors::init(&script.effectors)?;
 
     // iterate modified files in repo, incl. untracked
     // TODO: also iterate unmodified?

@@ -1,9 +1,7 @@
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{anyhow, bail, Result};
 use fn_error_context::context;
-use log::debug;
-use mlua::prelude::{IntoLua, Lua, LuaMultiValue, LuaTable, LuaValue};
 use path_slash::PathBufExt as _;
-use thiserror::Error;
+use phf::phf_set;
 
 use std::collections::BTreeMap;
 use std::io::{BufReader, Write};
@@ -24,6 +22,12 @@ pub fn serve(mut args: std::env::Args) -> Result<()> {
         _ => Err(anyhow!("unknown effector name: {name:?}")),
     }
 }
+
+static EFFECTORS: phf::Set<&'static str> = phf_set! {
+    "*lua",
+    "*scp",
+    "*zeroinstall",
+};
 
 type ChildProcs = BTreeMap<String, ChildProc>;
 
@@ -115,29 +119,16 @@ impl ChildProc {
     }
 }
 
-pub struct Effectors<'lua> {
-    lua: LuaTable<'lua>,
+pub struct Effectors {
     child_procs: ChildProcs,
 }
 
-impl<'lua> Effectors<'lua> {
-    pub fn init(lua: &'lua Lua, spec: &Spec) -> Result<Effectors<'lua>> {
-        let lua_effectors = lua.create_table().unwrap();
+impl Effectors {
+    pub fn init(spec: &Spec) -> Result<Effectors> {
         let mut child_procs = ChildProcs::new();
         for (root, cmd) in spec {
-            if init_lua_effector(lua, &lua_effectors, root.clone(), cmd.clone()).is_ok() {
-                continue;
-            }
             match &cmd[..] {
-                [s, args @ ..] if s == "*zeroinstall" => {
-                    // TODO[LATER]: check no duplicates
-                    child_procs.insert(root.clone(), ChildProc::new_effector(s, args)?);
-                }
-                [s, args @ ..] if s == "*scp" => {
-                    // TODO[LATER]: check no duplicates
-                    child_procs.insert(root.clone(), ChildProc::new_effector(s, args)?);
-                }
-                [s, args @ ..] if s == "*lua" => {
+                [s, args @ ..] if EFFECTORS.contains(s) => {
                     // TODO[LATER]: check no duplicates
                     child_procs.insert(root.clone(), ChildProc::new_effector(s, args)?);
                 }
@@ -146,120 +137,35 @@ impl<'lua> Effectors<'lua> {
                 }
             }
         }
-        Ok(Self {
-            lua: lua_effectors,
-            child_procs,
-        })
+        Ok(Self { child_procs })
     }
 
     #[context("detecting at {prefix}/{subpath}")]
     pub fn detect(&mut self, prefix: &str, subpath: &str) -> Result<bool> {
-        if let Some(v) = self.child_procs.get_mut(prefix) {
-            return v.detect(&PathBuf::from_slash(subpath));
-        }
-
-        call_effector_method(&self.lua, prefix, "exists", subpath)
-            .with_context(|| format!("calling effectors[{prefix:?}]:exists({subpath:?})"))
+        self.for_prefix(prefix)?
+            .detect(&PathBuf::from_slash(subpath))
     }
 
     #[context("gathering at {prefix}/{subpath}")]
     pub fn gather(&mut self, prefix: &str, subpath: &str, shadow_root: &str) -> Result<()> {
-        if let Some(v) = self.child_procs.get_mut(prefix) {
-            let subpath = &PathBuf::from_slash(subpath);
-            let shadow_root = &PathBuf::from_slash(shadow_root);
-            return v.gather(subpath, &shadow_root.join(prefix));
-        }
-
-        let shadow_path = PathBuf::from(&shadow_root)
-            .join(prefix)
-            .join(PathBuf::from_slash(subpath));
-        call_effector_method(
-            &self.lua,
-            prefix,
-            "query",
-            (subpath, shadow_path.to_str().unwrap()),
-        )
-        .with_context(|| format!("calling effectors[{prefix:?}]:query({subpath:?})"))
+        let subpath = &PathBuf::from_slash(subpath);
+        let shadow_root = &PathBuf::from_slash(shadow_root);
+        self.for_prefix(prefix)?
+            .gather(subpath, &shadow_root.join(prefix))
     }
 
     #[context("affecting at {prefix}/{subpath}")]
     pub fn affect(&mut self, prefix: &str, subpath: &str, shadow_root: &str) -> Result<()> {
-        if let Some(v) = self.child_procs.get_mut(prefix) {
-            let subpath = &PathBuf::from_slash(subpath);
-            let shadow_root = &PathBuf::from_slash(shadow_root);
-            return v.affect(subpath, &shadow_root.join(prefix));
-        }
-
-        let shadow_path = PathBuf::from(&shadow_root)
-            .join(prefix)
-            .join(PathBuf::from_slash(subpath));
-        call_effector_method(
-            &self.lua,
-            prefix,
-            "apply",
-            (subpath, shadow_path.to_str().unwrap()),
-        )
-        .with_context(|| format!("calling effectors[{prefix:?}]:apply({subpath:?})"))
+        let subpath = &PathBuf::from_slash(subpath);
+        let shadow_root = &PathBuf::from_slash(shadow_root);
+        self.for_prefix(prefix)?
+            .affect(subpath, &shadow_root.join(prefix))
     }
-}
 
-#[derive(Error, Debug)]
-enum InitEffectorError {
-    #[error("not a Lua-based effector")]
-    NotLua,
-}
-
-fn init_lua_effector(lua: &Lua, dst: &LuaTable, root: String, cmd: Vec<String>) -> Result<()> {
-    if cmd.len() < 2 || cmd[0] != "lua53" {
-        return Err(anyhow::Error::new(InitEffectorError::NotLua));
+    fn for_prefix(&mut self, prefix: &str) -> Result<&mut ChildProc> {
+        let Some(v) = self.child_procs.get_mut(prefix) else {
+            bail!("effector not found for prefix {prefix:?}");
+        };
+        Ok(v)
     }
-    //if cmd.len() < 2 {
-    //    bail!("Effector for {root:?} has too few elements - expected 2+, got: {cmd:?}");
-    //}
-    //if cmd[0] != "lua53" {
-    //    bail!("FIXME: currently effector[0] must be 'lua53'");
-    //}
-    let source = std::fs::read_to_string(&cmd[1])
-        .with_context(|| format!("reading Lua script for effector for {root:?}"))?;
-    // TODO: eval and load returned module - must refactor scripts first
-    let mut v = lua.load(source).set_name(&cmd[1]).eval::<LuaValue>()?;
-    let LuaValue::Table(ref t) = v else {
-        bail!("Effector for {root:?} expected to return Lua table, but got: {v:?}");
-    };
-    if let Ok(init) = t.get::<&str, LuaValue>("init") {
-        debug!("INIT for {root:?} = {init:?}");
-        if let LuaValue::Function(ref f) = init {
-            let args = cmd[2..]
-                .iter()
-                .map(|v| v.clone().into_lua(lua).unwrap())
-                .collect::<LuaMultiValue>();
-            let ret = f.call(args).with_context(|| {
-                format!("calling 'init({:?})' on effector for {root:?}", &cmd[2..])
-            })?;
-            let LuaValue::Table(_) = ret else {
-                bail!("calling 'init(...)' on effector for {root:?} expected to return Lua table, got; {ret:?}");
-            };
-            v = ret;
-        }
-    }
-    dst.set(root.as_str(), v).unwrap();
-    Ok(())
-}
-
-fn call_effector_method<'a, V: mlua::FromLuaMulti<'a>>(
-    effectors: &LuaTable<'a>,
-    prefix: &str,
-    method: &str,
-    args: impl mlua::IntoLuaMulti<'a>,
-) -> Result<V> {
-    let effector: LuaValue = effectors.get(prefix).unwrap();
-    let LuaValue::Table(ref t) = effector else {
-        bail!("expected Lua effector for {prefix:?} to be a table, but got: {effector:?}");
-    };
-    let method_val: LuaValue = t.get(method).unwrap();
-    let LuaValue::Function(ref f) = method_val else {
-        bail!("expected '{method}' in Lua effector for {prefix:?} to be a function, but got: {method_val:?}");
-    };
-    let res: V = f.call(args)?;
-    Ok(res)
 }
