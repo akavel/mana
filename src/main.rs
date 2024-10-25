@@ -90,7 +90,7 @@ fn open_shadow_repo(script: &Script) -> Result<Repository> {
 fn query(script: Script) -> Result<()> {
     let repo = open_shadow_repo(&script)?;
     // check if repo is clean
-    if !check_git_statuses_empty(&repo)? {
+    if !check_git_statuses_empty(&repo, script.effector_dirs())? {
         bail!("git 'shadow_dir' repository is not clean (see: git status)");
     }
 
@@ -153,7 +153,7 @@ fn query(script: Script) -> Result<()> {
     }
 
     // Two-way compare: current git <-> results of effectors.query
-    if !check_git_statuses_empty(&repo)? {
+    if !check_git_statuses_empty(&repo, script.effector_dirs())? {
         bail!(
             "real disk contents differ from expected prerequisites; check git diff in shadow repo: {:?}", script.shadow_dir,
         );
@@ -255,9 +255,15 @@ fn apply(script: Script) -> Result<()> {
 
 type PathSet = BTreeSet<String>;
 
-fn check_git_statuses_empty(repo: &Repository) -> Result<bool> {
+fn check_git_statuses_empty<'a>(
+    repo: &Repository,
+    dirs: impl Iterator<Item = &'a str>,
+) -> Result<bool> {
     let mut stat_opt = git2::StatusOptions::new();
     stat_opt.include_untracked(true);
+    for dir in dirs {
+        stat_opt.pathspec(dir.to_owned() + "/");
+    }
     let stat = repo.statuses(Some(&mut stat_opt))?;
     Ok(stat.is_empty())
 }

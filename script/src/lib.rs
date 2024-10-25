@@ -117,6 +117,10 @@ impl Script {
         }
         Ok(())
     }
+
+    pub fn effector_dirs(&self) -> impl Iterator<Item = &str> {
+        self.effectors.keys().map(|s| s.as_ref())
+    }
 }
 
 #[derive(Error, Debug)]
