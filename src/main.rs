@@ -235,18 +235,19 @@ fn apply(script: Script) -> Result<()> {
     let mut stat_opt = git2::StatusOptions::new();
     stat_opt.include_untracked(true);
     stat_opt.recurse_untracked_dirs(true);
-    for ign in script.ignores {
-        stat_opt.pathspec("^/".to_owned() + ign.as_ref());
-    }
     // stat_opt.include_unmodified(true);
     for stat in &repo.statuses(Some(&mut stat_opt))? {
-        debug!(" * {:?}", stat.path());
         let Some(path) = stat.path() else {
             bail!(
                 "Path from 'git status' cannot be parsed as utf8: {:?}",
                 stat.path()
             );
         };
+        if script.ignores_path(path) {
+            debug!(" ^ {:?}", path);
+            continue;
+        }
+        debug!(" * {:?}", path);
         let os_rel_path = PathBuf::from_slash(path);
         let (prefix, subpath) = split_effector_path(path);
         effectors.affect(prefix, subpath, &script.shadow_dir)?;
