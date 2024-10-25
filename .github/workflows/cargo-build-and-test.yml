@@ -20,6 +20,6 @@ jobs:
       with:
         key: "${{ github.ref }}"   # experiment to maybe avoid pollution btw. branches
     - name: Build
-      run: cargo build # --verbose  ## verbose disabled, as it's too loud normally
+      run: cargo build  # --verbose  ## verbose disabled, as it's too loud normally
     - name: Run tests
-      run: cargo test --verbose
+      run: cargo test --workspace  # --verbose
