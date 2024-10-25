@@ -17,6 +17,6 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - name: Build
-      run: cargo build --verbose
+      run: cargo build # --verbose  ## verbose disabled, as it's too loud normally
     - name: Run tests
       run: cargo test --verbose
