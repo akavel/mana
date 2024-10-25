@@ -1,7 +1,7 @@
 use anyhow::{bail, Result};
 use fn_error_context::context;
-use mlua::prelude::{IntoLua, Lua, LuaMultiValue, LuaTable, LuaValue};
-// use mlua::prelude::*;
+use mlua::prelude::{Lua, LuaMultiValue, LuaValue};
+use path_slash::PathExt as _;
 
 use std::path::Path;
 
@@ -109,20 +109,20 @@ impl effectors::Callee for Effector {
 
     fn detect(&mut self, path: &Path) -> Result<bool> {
         // FIXME: `path` should be slash'ed on input here
-        self.call_method("exists", path.to_str().unwrap())
+        self.call_method("exists", path.to_slash())
     }
 
     fn gather(&mut self, path: &Path, shadow_prefix: &Path) -> Result<()> {
         let shadow_path = shadow_prefix.join(path);
         // FIXME: `path` should be slash'ed on input here
-        let path = path.to_str().unwrap();
+        let path = path.to_slash();
         self.call_method("query", (path, shadow_path.to_str().unwrap()))
     }
 
     fn affect(&mut self, path: &Path, shadow_prefix: &Path) -> Result<()> {
         let shadow_path = shadow_prefix.join(path);
         // FIXME: `path` should be slash'ed on input here
-        let path = path.to_str().unwrap();
+        let path = path.to_slash();
         self.call_method("apply", (path, shadow_path.to_str().unwrap()))
     }
 }
