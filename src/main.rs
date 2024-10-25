@@ -90,7 +90,7 @@ fn open_shadow_repo(script: &Script) -> Result<Repository> {
 fn query(script: Script) -> Result<()> {
     let repo = open_shadow_repo(&script)?;
     // check if repo is clean
-    if !check_git_statuses_empty(&repo, script.effector_dirs())? {
+    if !check_git_statuses_empty(&repo, &script.ignores)? {
         bail!("git 'shadow_dir' repository is not clean (see: git status)");
     }
 
@@ -107,6 +107,9 @@ fn query(script: Script) -> Result<()> {
         if entry.kind() == Some(git2::ObjectType::Blob) {
             let name = entry.name().unwrap();
             let slash_path = root.to_string() + name;
+            if ignores.contains(first_segment_of_path(slash_path)) {
+                continue;
+            }
             // TODO: also check if entry already existed here
             case_insensitive_paths.insert(slash_path.clone().into(), slash_path.clone());
             paths.insert(slash_path);
@@ -117,6 +120,9 @@ fn query(script: Script) -> Result<()> {
     //     println!(" - {k:?}");
     // }
     for path in script.paths.keys() {
+        if ignores.contains(first_segment_of_path(path)) {
+            bail!("Path {path:?} from script matches an ignored prefix");
+        }
         let unicase = path.clone().into();
         if let Some(found) = case_insensitive_paths.get(&unicase) {
             if found.as_str() != path {
@@ -153,7 +159,7 @@ fn query(script: Script) -> Result<()> {
     }
 
     // Two-way compare: current git <-> results of effectors.query
-    if !check_git_statuses_empty(&repo, script.effector_dirs())? {
+    if !check_git_statuses_empty(&repo, &script.ignores)? {
         bail!(
             "real disk contents differ from expected prerequisites; check git diff in shadow repo: {:?}", script.shadow_dir,
         );
@@ -176,6 +182,9 @@ fn draft(script: Script) -> Result<()> {
         if entry.kind() == Some(git2::ObjectType::Blob) {
             let name = entry.name().unwrap();
             let slash_path = root.to_string() + name;
+            if ignores.contains(first_segment_of_path(slash_path)) {
+                continue;
+            }
             // FIXME: bring back case_insensitive_paths
             // TODO: also check if entry already existed here
             //case_insensitive_paths.insert(slash_path.clone().into(), slash_path.clone());
@@ -191,6 +200,9 @@ fn draft(script: Script) -> Result<()> {
     let dir = Dir::open_ambient_dir(script.shadow_dir, ambient_authority())?;
     for (path, contents) in script.paths {
         debug!(" - {path}");
+        if ignores.contains(first_segment_of_path(path)) {
+            bail!("Path {path:?} from script matches an ignored prefix");
+        }
         // TODO[LATER]: try if things will "just work" on Windows without explicit from_slash conversions
         let os_path = PathBuf::from_slash(&path);
         if let Some(parent) = parent_dir(&os_path) {
@@ -223,6 +235,9 @@ fn apply(script: Script) -> Result<()> {
     let mut stat_opt = git2::StatusOptions::new();
     stat_opt.include_untracked(true);
     stat_opt.recurse_untracked_dirs(true);
+    for ign in ignores {
+        stat_opt.pathspec("^/".to_owned() + ign.as_ref());
+    }
     // stat_opt.include_unmodified(true);
     for stat in &repo.statuses(Some(&mut stat_opt))? {
         debug!(" * {:?}", stat.path());
@@ -255,14 +270,14 @@ fn apply(script: Script) -> Result<()> {
 
 type PathSet = BTreeSet<String>;
 
-fn check_git_statuses_empty<'a>(
+fn check_git_statuses_empty(
     repo: &Repository,
-    dirs: impl Iterator<Item = &'a str>,
+    ignores: impl IntoIterator<Item: AsRef<str>>,
 ) -> Result<bool> {
     let mut stat_opt = git2::StatusOptions::new();
     stat_opt.include_untracked(true);
-    for dir in dirs {
-        stat_opt.pathspec(dir.to_owned() + "/");
+    for ign in ignores {
+        stat_opt.pathspec("/".to_owned() + ign.as_ref());
     }
     let stat = repo.statuses(Some(&mut stat_opt))?;
     Ok(stat.is_empty())
@@ -280,4 +295,8 @@ fn split_effector_path(path: &str) -> (&str, &str) {
     let (start, rest) = path.split_at(idx);
     let (_slash, end) = rest.split_at(1);
     (start, end)
+}
+
+fn first_segment_of_path(path: &str) -> &str {
+    path.split('/').next().unwrap()
 }

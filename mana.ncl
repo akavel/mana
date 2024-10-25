@@ -24,6 +24,11 @@ let module = {
     shadow_dir = m%"c:\prog\shadow"%,
     effectors = effectors',
     tree = tree',
+    ignores = [
+      "mana.ncl",
+      "vimrc.txt",
+      "_old01",
+    ],
   },
 
   effectors' = {

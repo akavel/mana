@@ -9,6 +9,7 @@ use std::path::PathBuf;
 #[cfg_attr(test, derive(Default))]
 pub struct Script {
     pub shadow_dir: String,
+    pub ignores: Vec<String>,
     pub effectors: Effectors,
     pub paths: PathContentMap,
 }
@@ -34,6 +35,19 @@ impl Script {
             bail!("Expected 'shadow_dir' to be text, got: {shadow_dir:?}");
         };
         debug!("SHAD: {shadow_dir:?}");
+
+        let mut ignores = Vec::<String>::new();
+        if let Some(raw_ignores) = toml.remove("ignores") {
+            let toml::Value::Array(raw_ignores) = raw_ignores else {
+                bail!("Expected 'ignores' to be array, got: {raw_ignores:?}");
+            };
+            for (i, v) in raw_ignores.into_iter().enumerate() {
+                let toml::Value::String(s) = v else {
+                    bail!("Unexpected type of ignores[{i}], want String, got: {v:?}");
+                };
+                ignores.push(s);
+            }
+        }
 
         // Extract `effectors` from toml
         // TODO[LATER]: use serde instead to extract, maybe
@@ -93,6 +107,7 @@ impl Script {
 
         Ok(Script {
             shadow_dir,
+            ignores,
             effectors,
             paths,
         })
@@ -116,10 +131,6 @@ impl Script {
             return Err(err);
         }
         Ok(())
-    }
-
-    pub fn effector_dirs(&self) -> impl Iterator<Item = &str> {
-        self.effectors.keys().map(|s| s.as_ref())
     }
 }
 
