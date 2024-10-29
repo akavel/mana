@@ -147,17 +147,15 @@ impl Effectors {
     }
 
     #[context("gathering at {prefix}/{subpath}")]
-    pub fn gather(&mut self, prefix: &str, subpath: &str, shadow_root: &str) -> Result<()> {
+    pub fn gather(&mut self, prefix: &str, subpath: &str, shadow_root: &Path) -> Result<()> {
         let subpath = &PathBuf::from_slash(subpath);
-        let shadow_root = &PathBuf::from_slash(shadow_root);
         self.for_prefix(prefix)?
             .gather(subpath, &shadow_root.join(prefix))
     }
 
     #[context("affecting at {prefix}/{subpath}")]
-    pub fn affect(&mut self, prefix: &str, subpath: &str, shadow_root: &str) -> Result<()> {
+    pub fn affect(&mut self, prefix: &str, subpath: &str, shadow_root: &Path) -> Result<()> {
         let subpath = &PathBuf::from_slash(subpath);
-        let shadow_root = &PathBuf::from_slash(shadow_root);
         self.for_prefix(prefix)?
             .affect(subpath, &shadow_root.join(prefix))
     }

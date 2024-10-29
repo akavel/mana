@@ -1,8 +1,8 @@
 use anyhow::{bail, Context, Result};
-use std::path::PathBuf;
+use std::path::Path;
 use toml::macros::Deserialize;
 
-pub fn from_file(ncl_path: PathBuf) -> Result<toml::Table> {
+pub fn from_file(ncl_path: &Path) -> Result<toml::Table> {
     let username = whoami::username();
     let mut hostname = whoami::fallible::hostname()?;
     hostname.make_ascii_lowercase();

@@ -3,12 +3,12 @@ use log::debug;
 use thiserror::Error;
 
 use std::collections::BTreeMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 #[derive(Debug)]
 #[cfg_attr(test, derive(Default))]
 pub struct Script {
-    pub shadow_dir: String,
+    pub shadow_dir: PathBuf,
     pub ignores: Vec<String>,
     pub effectors: Effectors,
     pub paths: PathContentMap,
@@ -18,23 +18,32 @@ pub type Effectors = BTreeMap<String, Vec<String>>;
 pub type PathContentMap = BTreeMap<String, String>;
 
 impl Script {
-    pub fn parse_ncl_file(ncl_path: PathBuf) -> Result<Self> {
-        let mut toml = parse_ncl::from_file(ncl_path)?;
-        Self::parse_toml(&mut toml)
+    pub fn parse_ncl_file(ncl_path: &Path) -> Result<Self> {
+        let mut toml = parse_ncl::from_file(&ncl_path)?;
+        let ncl_parent = if let Some(p) = ncl_path.parent() {
+            p.to_owned()
+        } else {
+            PathBuf::from(".")
+        };
+        Self::parse_toml(&mut toml, &ncl_parent)
     }
 
-    fn parse_toml(toml: &mut toml::Table) -> Result<Self> {
+    fn parse_toml(toml: &mut toml::Table, base_dir: &Path) -> Result<Self> {
         // println!("PARSED: {toml:?}");
 
         // Extract `shadow_dir` from toml
         // TODO[LATER]: use serde instead to extract, maybe
-        let Some(shadow_dir) = toml.remove("shadow_dir") else {
-            bail!("Missing 'shadow_dir' in stdin");
+        let raw_shadow_dir = if let Some(dir) = toml.remove("shadow_dir") {
+            let toml::Value::String(dir) = dir else {
+                bail!("Expected 'shadow_dir' to be text, got: {dir:?}");
+            };
+            dir
+        } else {
+            ".".to_string()
         };
-        let toml::Value::String(shadow_dir) = shadow_dir else {
-            bail!("Expected 'shadow_dir' to be text, got: {shadow_dir:?}");
-        };
-        debug!("SHAD: {shadow_dir:?}");
+        // If raw_shadow_dir is absolute, join will ignore base_dir.
+        let shadow_dir = base_dir.join(&raw_shadow_dir);
+        debug!("SHAD: {shadow_dir:?} (from {raw_shadow_dir:?})");
 
         let mut ignores = Vec::<String>::new();
         if let Some(raw_ignores) = toml.remove("ignores") {
@@ -106,7 +115,7 @@ impl Script {
         // }
 
         Ok(Script {
-            shadow_dir,
+            shadow_dir: shadow_dir.into(),
             ignores,
             effectors,
             paths,

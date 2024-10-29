@@ -64,7 +64,7 @@ fn main() -> Result<()> {
     env_logger::Builder::new().filter_level(log_level).init();
     debug!("Hello, world!");
 
-    let script = Script::parse_ncl_file(cli.ncl)?;
+    let script = Script::parse_ncl_file(&cli.ncl)?;
     script.validate()?;
     match &cli.command {
         Command::Query => query(script),
