@@ -177,8 +177,6 @@ mod raw {
     pub struct App {
         #[yaserde(attribute)]
         pub interface: Option<String>,
-        #[yaserde(attribute)]
-        pub timestamp: u64,
         #[yaserde(child)]
         pub capabilities: Option<xmlutil::OpaqueXml>,
         #[yaserde(child, rename = "access-points")]
