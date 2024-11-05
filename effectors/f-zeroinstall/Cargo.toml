@@ -3,8 +3,8 @@ name = "care-ef-zeroinstall"
 version = "0.2.0"
 edition = "2021"
 description = "0install effector for the care tool"
-license = "AGPL-3.0-or-later"
-repository = "https://github.com/akavel/mana"
+license.workspace = true
+repository.workspace = true
 
 [dependencies]
 effectors = { workspace = true }

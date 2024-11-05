@@ -3,8 +3,8 @@ name = "care-ef-lua"
 version = "0.2.0"
 edition = "2021"
 description = "Lua effector for the care tool"
-license = "AGPL-3.0-or-later"
-repository = "https://github.com/akavel/mana"
+license.workspace = true
+repository.workspace = true
 
 [dependencies]
 anyhow = { workspace = true }
