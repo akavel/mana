@@ -1,10 +1,11 @@
 [package]
 name = "care"
 version = "0.2.0"
-edition = "2021"
-rust-version = "1.80"
+description = "A tool for configuration management, reconciling, and tracking over time"
 license.workspace = true
 repository.workspace = true
+edition = "2021"
+rust-version = "1.80"
 default-run = "care"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
