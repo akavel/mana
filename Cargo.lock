@@ -206,10 +206,10 @@ version = "0.2.0"
 dependencies = [
  "anyhow",
  "cap-std",
+ "care-ef-lua",
  "care-effectors",
  "clap",
  "env_logger",
- "f-lua",
  "f-scp",
  "f-zeroinstall",
  "fn-error-context",
@@ -224,6 +224,17 @@ dependencies = [
  "unicase",
  "url",
  "urlencoding",
+]
+
+[[package]]
+name = "care-ef-lua"
+version = "0.2.0"
+dependencies = [
+ "anyhow",
+ "care-effectors",
+ "fn-error-context",
+ "mlua",
+ "path-slash",
 ]
 
 [[package]]
@@ -480,17 +491,6 @@ checksum = "a258e46cdc063eb8519c00b9fc845fc47bcfca4130e2f08e88665ceda8474245"
 dependencies = [
  "libc",
  "windows-sys 0.52.0",
-]
-
-[[package]]
-name = "f-lua"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "care-effectors",
- "fn-error-context",
- "mlua",
- "path-slash",
 ]
 
 [[package]]
