@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 effectors = { path = "..", version = "0.2.0", package = "care-effectors" }
 anyhow = { workspace = true }
-itertools = "0.12.1"
+itertools = { workspace = true }
 log = { workspace = true }
 path-slash = { workspace = true }
 tempfile = { workspace = true }

@@ -5,5 +5,5 @@ edition = "2021"
 
 [dependencies]
 anyhow = { workspace = true }
-itertools = "0.13"
+itertools = { workspace = true }
 urlencoding = { workspace = true }
