@@ -201,6 +201,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "care"
+version = "0.2.0"
+dependencies = [
+ "anyhow",
+ "cap-std",
+ "clap",
+ "effectors",
+ "env_logger",
+ "f-lua",
+ "f-scp",
+ "f-zeroinstall",
+ "fn-error-context",
+ "git2",
+ "itertools 0.13.0",
+ "log",
+ "path-slash",
+ "peg",
+ "phf",
+ "script",
+ "thiserror",
+ "unicase",
+ "url",
+ "urlencoding",
+]
+
+[[package]]
 name = "cc"
 version = "1.0.83"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -968,32 +994,6 @@ dependencies = [
  "malachite-base",
  "malachite-nz",
  "serde",
-]
-
-[[package]]
-name = "mana2"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "cap-std",
- "clap",
- "effectors",
- "env_logger",
- "f-lua",
- "f-scp",
- "f-zeroinstall",
- "fn-error-context",
- "git2",
- "itertools 0.13.0",
- "log",
- "path-slash",
- "peg",
- "phf",
- "script",
- "thiserror",
- "unicase",
- "url",
- "urlencoding",
 ]
 
 [[package]]

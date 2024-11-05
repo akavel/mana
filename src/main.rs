@@ -12,13 +12,13 @@ use unicase::UniCase;
 
 use script::Script;
 
-use mana2::effectors::{self, Effectors};
+use care::effectors::{self, Effectors};
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
 struct Cli {
     /// Path to a file containing a Nickel script to evaluate.
-    #[arg(short, long, default_value = "mana.ncl")]
+    #[arg(short, long, default_value = "care.ncl")]
     ncl: PathBuf,
 
     /// Turn debugging information on.
@@ -64,7 +64,7 @@ fn main() -> Result<()> {
     env_logger::Builder::new().filter_level(log_level).init();
     debug!("Hello, world!");
 
-    println!("mana: Processing Nickel script");
+    println!("care: Processing Nickel script");
     let script = Script::parse_ncl_file(&cli.ncl)?;
     script.validate()?;
     match &cli.command {
@@ -89,7 +89,7 @@ fn open_shadow_repo(script: &Script) -> Result<Repository> {
 }
 
 fn query(script: Script) -> Result<()> {
-    println!("mana: Opening shadow repository");
+    println!("care: Opening shadow repository");
     let repo = open_shadow_repo(&script)?;
     // check if repo is clean
     if !check_git_statuses_empty(&repo, &script.ignores)? {
@@ -97,11 +97,11 @@ fn query(script: Script) -> Result<()> {
     }
 
     // Initialize effectors
-    println!("mana: Starting effectors:");
+    println!("care: Starting effectors:");
     let mut effectors = Effectors::init(&script.effectors)?;
 
     // Make a list of paths in 'tree' and in git
-    println!("mana: Collecting paths in git");
+    println!("care: Collecting paths in git");
     let head = repo.head()?;
     let head_tree = head.peel_to_tree()?;
     let mut paths = PathSet::new();
@@ -123,7 +123,7 @@ fn query(script: Script) -> Result<()> {
     // for k in &paths {
     //     println!(" - {k:?}");
     // }
-    println!("mana: Collecting paths in script");
+    println!("care: Collecting paths in script");
     for path in script.paths.keys() {
         if script.ignores_path(&path) {
             bail!("Path {path:?} from script matches an ignored prefix");
@@ -142,14 +142,14 @@ fn query(script: Script) -> Result<()> {
     }
 
     // Run 'query' on appropriate effectors for all listed paths, fetching files into the git workspace
-    println!("mana: Querying:");
+    println!("care: Querying:");
     let dir = Dir::open_ambient_dir(&script.shadow_dir, ambient_authority())?;
     for path in &paths {
         if let Some(parent) = parent_dir(&PathBuf::from_slash(path)) {
             dir.create_dir_all(parent).context("in shadow_dir")?;
         }
         let (prefix, subpath) = split_effector_path(path);
-        println!("mana:   {prefix}: {subpath}");
+        println!("care:   {prefix}: {subpath}");
         let found = effectors.detect(prefix, subpath)?;
         let shadow_path = PathBuf::from(&script.shadow_dir).join(PathBuf::from_slash(path));
         if !found {
@@ -179,9 +179,9 @@ fn query(script: Script) -> Result<()> {
 
 fn draft(script: Script) -> Result<()> {
     // Make a list of paths in git
-    println!("mana: Opening shadow repository");
+    println!("care: Opening shadow repository");
     let repo = open_shadow_repo(&script)?;
-    println!("mana: Collecting paths in git");
+    println!("care: Collecting paths in git");
     let head = repo.head()?;
     let head_tree = head.peel_to_tree()?;
     // TODO: unicode normaliz.: https://stackoverflow.com/q/47813162/#comment82595250_47813878
@@ -207,7 +207,7 @@ fn draft(script: Script) -> Result<()> {
     // TODO[LATER]: validate that paths were not already added (and do it case insensitively)
     // TODO[LATER]: allow case-sensitive check with an explicit CLI flag
     let dir = Dir::open_ambient_dir(script.shadow_dir.clone(), ambient_authority())?;
-    println!("mana: Processing paths in script");
+    println!("care: Processing paths in script");
     for (path, contents) in &script.paths {
         debug!(" - {path}");
         if script.ignores_path(&path) {
@@ -234,23 +234,23 @@ fn draft(script: Script) -> Result<()> {
 }
 
 fn apply(script: Script) -> Result<()> {
-    println!("mana: Opening shadow repository");
+    println!("care: Opening shadow repository");
     let repo = open_shadow_repo(&script)?;
 
     // Initialize effectors
-    println!("mana: Starting effectors:");
+    println!("care: Starting effectors:");
     let mut effectors = Effectors::init(&script.effectors)?;
 
     // iterate modified files in repo, incl. untracked
     // TODO: also iterate unmodified?
-    println!("mana: Collecting pending paths in git");
+    println!("care: Collecting pending paths in git");
     let mut git_index = repo.index()?;
     let mut stat_opt = git2::StatusOptions::new();
     stat_opt.include_untracked(true);
     stat_opt.recurse_untracked_dirs(true);
     let statuses = repo.statuses(Some(&mut stat_opt))?;
     // stat_opt.include_unmodified(true);
-    println!("mana: Affecting:");
+    println!("care: Affecting:");
     for stat in &statuses {
         let Some(path) = stat.path() else {
             bail!(
@@ -265,7 +265,7 @@ fn apply(script: Script) -> Result<()> {
         debug!(" * {:?}", path);
         let os_rel_path = PathBuf::from_slash(path);
         let (prefix, subpath) = split_effector_path(path);
-        println!("mana:   {prefix}: {subpath}");
+        println!("care:   {prefix}: {subpath}");
         effectors.affect(prefix, subpath, &script.shadow_dir)?;
         use git2::Status;
         match stat.status() {

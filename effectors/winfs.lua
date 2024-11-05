@@ -47,7 +47,7 @@ function winfs.osexists(ospath)
 end
 
 -- winfs.osapply is a helper for applying files which can be
--- reused by other Windows file-based mana plugins.
+-- reused by other Windows file-based care effectors.
 function winfs.osapply(ospath, shadowpath)
   if winfs.osexists(shadowpath) then
     winfs.mkdirp(ospath)

@@ -127,7 +127,7 @@ impl Effectors {
     pub fn init(spec: &Spec) -> Result<Effectors> {
         let mut child_procs = ChildProcs::new();
         for (root, cmd) in spec {
-            println!("mana:   {root}");
+            println!("care:   {root}");
             match &cmd[..] {
                 [s, args @ ..] if EFFECTORS.contains(s) => {
                     // TODO[LATER]: check no duplicates

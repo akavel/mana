@@ -2,8 +2,8 @@ use anyhow::Result;
 
 use std::path::{Path, PathBuf};
 
-pub const HANDSHAKE_RQ: &str = "com.akavel.mana.v2.rq";
-pub const HANDSHAKE_RS: &str = "com.akavel.mana.v2.rs";
+pub const HANDSHAKE_RQ: &str = "com.akavel.care.v2.rq";
+pub const HANDSHAKE_RS: &str = "com.akavel.care.v2.rs";
 
 pub trait Callee {
     fn start(args: std::env::Args) -> Result<Self>

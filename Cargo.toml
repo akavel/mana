@@ -1,23 +1,19 @@
 [package]
-name = "mana2"
-version = "0.1.0"
+name = "care"
+version = "0.2.0"
 edition = "2021"
 rust-version = "1.80"
-default-run = "mana"
+default-run = "care"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [[bin]]
-name = "mana"
+name = "care"
 path = "src/main.rs"
 
 #[[bin]]
 #name = "x"
 #path = "src/exp-tmp.rs"
-
-#[[bin]]
-#name = "zeroinst"
-#path = "handler/zeroinst.rs"
 
 [workspace]
 
