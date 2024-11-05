@@ -18,7 +18,7 @@ path = "src/main.rs"
 [workspace]
 
 [dependencies]
-effectors = { path = "effectors" }
+effectors = { path = "effectors", version = "0.2.0", package = "care-effectors" }
 f-lua = { path = "effectors/f-lua" }
 f-scp = { path = "effectors/f-scp" }
 f-zeroinstall = { path = "effectors/f-zeroinstall" }

@@ -206,8 +206,8 @@ version = "0.2.0"
 dependencies = [
  "anyhow",
  "cap-std",
+ "care-effectors",
  "clap",
- "effectors",
  "env_logger",
  "f-lua",
  "f-scp",
@@ -223,6 +223,15 @@ dependencies = [
  "thiserror",
  "unicase",
  "url",
+ "urlencoding",
+]
+
+[[package]]
+name = "care-effectors"
+version = "0.2.0"
+dependencies = [
+ "anyhow",
+ "itertools 0.13.0",
  "urlencoding",
 ]
 
@@ -408,15 +417,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "effectors"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "itertools 0.13.0",
- "urlencoding",
-]
-
-[[package]]
 name = "either"
 version = "1.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -487,7 +487,7 @@ name = "f-lua"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "effectors",
+ "care-effectors",
  "fn-error-context",
  "mlua",
  "path-slash",
@@ -498,8 +498,8 @@ name = "f-scp"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "care-effectors",
  "clap",
- "effectors",
  "fn-error-context",
  "remotefs",
  "remotefs-ssh",
@@ -510,7 +510,7 @@ name = "f-zeroinstall"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "effectors",
+ "care-effectors",
  "itertools 0.12.1",
  "log",
  "path-slash",

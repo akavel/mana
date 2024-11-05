@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-effectors = { path = ".." }
+effectors = { path = "..", version = "0.2.0", package = "care-effectors" }
 anyhow = "1.0.79"
 itertools = "0.12.1"
 log = "0.4.22"
