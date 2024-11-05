@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 anyhow = { workspace = true }
-effectors = { path = "..", version = "0.2.0", package = "care-effectors" }
+effectors = { workspace = true }
 fn-error-context = { workspace = true }
 mlua = { workspace = true, features = ["lua54", "vendored"] }
 path-slash = { workspace = true }

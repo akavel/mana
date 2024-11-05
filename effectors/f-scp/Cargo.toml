@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 anyhow = { workspace = true }
 clap = { workspace = true, features = ["derive"] }
-effectors = { path = "..", version = "0.2.0", package = "care-effectors" }
+effectors = { workspace = true }
 fn-error-context = { workspace = true }
 remotefs = { workspace = true }
 remotefs-ssh = { workspace = true }
