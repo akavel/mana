@@ -7,6 +7,6 @@ edition = "2021"
 anyhow = { workspace = true }
 #assert_matches = "1.5.0" # TODO: replace with std when assert_matches stabilizes
 log = { workspace = true }
-parse_ncl = { path = "parse_ncl" }
+parse_ncl = { workspace = true }
 thiserror = { workspace = true }
 toml = { workspace = true, features = ["preserve_order"] }

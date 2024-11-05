@@ -1,7 +1,10 @@
 [package]
-name = "parse_ncl"
-version = "0.1.0"
+name = "care-parse-ncl"
+version = "0.2.0"
 edition = "2021"
+description = "Nickel script parsing crate for the care tool"
+license = "AGPL-3.0-or-later"
+repository = "https://github.com/akavel/mana"
 
 [dependencies]
 anyhow = { workspace = true }

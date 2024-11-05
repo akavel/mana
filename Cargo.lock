@@ -208,10 +208,10 @@ dependencies = [
  "cap-std",
  "care-ef-lua",
  "care-ef-scp",
+ "care-ef-zeroinstall",
  "care-effectors",
  "clap",
  "env_logger",
- "f-zeroinstall",
  "fn-error-context",
  "git2",
  "itertools 0.13.0",
@@ -250,12 +250,37 @@ dependencies = [
 ]
 
 [[package]]
+name = "care-ef-zeroinstall"
+version = "0.2.0"
+dependencies = [
+ "anyhow",
+ "care-effectors",
+ "itertools 0.13.0",
+ "log",
+ "path-slash",
+ "tempfile",
+ "url",
+ "xml-rs",
+ "yaserde",
+]
+
+[[package]]
 name = "care-effectors"
 version = "0.2.0"
 dependencies = [
  "anyhow",
  "itertools 0.13.0",
  "urlencoding",
+]
+
+[[package]]
+name = "care-parse-ncl"
+version = "0.2.0"
+dependencies = [
+ "anyhow",
+ "nickel-lang-core",
+ "toml 0.8.8",
+ "whoami",
 ]
 
 [[package]]
@@ -503,21 +528,6 @@ checksum = "a258e46cdc063eb8519c00b9fc845fc47bcfca4130e2f08e88665ceda8474245"
 dependencies = [
  "libc",
  "windows-sys 0.52.0",
-]
-
-[[package]]
-name = "f-zeroinstall"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "care-effectors",
- "itertools 0.13.0",
- "log",
- "path-slash",
- "tempfile",
- "url",
- "xml-rs",
- "yaserde",
 ]
 
 [[package]]
@@ -1158,16 +1168,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "parse_ncl"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "nickel-lang-core",
- "toml 0.8.8",
- "whoami",
-]
-
-[[package]]
 name = "path-slash"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1482,8 +1482,8 @@ name = "script"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "care-parse-ncl",
  "log",
- "parse_ncl",
  "thiserror",
  "toml 0.8.8",
 ]
