@@ -11,13 +11,13 @@ pub struct Effector {
 
 impl Effector {
     fn load_embedded_packages(&self) {
-        self.load_pkg("effectors.winfs", include_str!("../../winfs.lua"));
-        self.load_pkg("effectors.winhome", include_str!("../../winhome.lua"));
-        self.load_pkg("effectors.winpath", include_str!("../../winpath.lua"));
-        self.load_pkg("effectors.posixfiles", include_str!("../../posixfiles.lua"));
-        self.load_pkg("effectors.posixdirs", include_str!("../../posixdirs.lua"));
-        self.load_pkg("effectors.posixfs", include_str!("../../posixfs.lua"));
-        self.load_pkg("effectors.systemctl", include_str!("../../systemctl.lua"));
+        self.load_pkg("effectors.winfs", include_str!("../winfs.lua"));
+        self.load_pkg("effectors.winhome", include_str!("../winhome.lua"));
+        self.load_pkg("effectors.winpath", include_str!("../winpath.lua"));
+        self.load_pkg("effectors.posixfiles", include_str!("../posixfiles.lua"));
+        self.load_pkg("effectors.posixdirs", include_str!("../posixdirs.lua"));
+        self.load_pkg("effectors.posixfs", include_str!("../posixfs.lua"));
+        self.load_pkg("effectors.systemctl", include_str!("../systemctl.lua"));
     }
 
     fn load_pkg(&self, name: &str, code: &str) {
