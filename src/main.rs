@@ -33,7 +33,7 @@ struct Cli {
 enum Command {
     /// Check actual state of the machine and serialize it into git
     /// working directory at 'shadow_dir'.
-    Query,
+    Check,
     /// Serialize desired state (as read from input) into git working
     /// directory at 'shadow_dir'.
     Draft,
@@ -68,7 +68,7 @@ fn main() -> Result<()> {
     let script = Script::parse_ncl_file(&cli.ncl)?;
     script.validate()?;
     match &cli.command {
-        Command::Query => query(script),
+        Command::Check => check(script),
         Command::Draft => draft(script),
         Command::Apply => apply(script),
     }
@@ -88,7 +88,7 @@ fn open_shadow_repo(script: &Script) -> Result<Repository> {
     Ok(repo)
 }
 
-fn query(script: Script) -> Result<()> {
+fn check(script: Script) -> Result<()> {
     println!("care: Opening shadow repository");
     let repo = open_shadow_repo(&script)?;
     // check if repo is clean
@@ -141,8 +141,8 @@ fn query(script: Script) -> Result<()> {
         debug!(" - {k:?}");
     }
 
-    // Run 'query' on appropriate effectors for all listed paths, fetching files into the git workspace
-    println!("care: Querying:");
+    // Run 'check' on appropriate effectors for all listed paths, fetching files into the git workspace
+    println!("care: Checking:");
     let dir = Dir::open_ambient_dir(&script.shadow_dir, ambient_authority())?;
     for path in &paths {
         if let Some(parent) = parent_dir(&PathBuf::from_slash(path)) {
