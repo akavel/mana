@@ -17,25 +17,50 @@ path = "src/main.rs"
 
 [workspace]
 
+[workspace.dependencies]
+anyhow = "1.0.79"
+cap-std = "3.0.0"
+clap = "4.4.18"
+env_logger = "0.11.5"
+fn-error-context = "0.2.1"
+git2 = { version = "0.19.0", default-features = false }
+log = "0.4.22"
+mlua = "0.9.4"
+nickel-lang-core = { version = "0.8.0", default-features = false }
+path-slash = "0.2.1"
+peg = "0.8.2"
+phf = "0.11.2"
+remotefs = { version = "0.3.0", default-features = false }
+remotefs-ssh = { version = "0.4.1", default-features = false }
+tempfile = "3.9.0"
+thiserror = "1.0.56"
+toml = "0.8.8"
+unicase = "2.7.0"
+url = "2.5.0"
+urlencoding = "2.1.3"
+whoami = { version = "1.5.0", default-features = false }
+xml-rs = "0.8.20"
+yaserde = "0.10.0"
+
 [dependencies]
 effectors = { path = "effectors", version = "0.2.0", package = "care-effectors" }
 f-lua = { path = "effectors/f-lua" }
 f-scp = { path = "effectors/f-scp" }
 f-zeroinstall = { path = "effectors/f-zeroinstall" }
 script = { path = "script" }
-anyhow = "1.0.79"
-cap-std = "3.0.0"
-clap = { version = "4.4.18", features = ["derive", "env", "wrap_help"] }
-env_logger = "0.11.5"
-fn-error-context = "0.2.1"
-git2 = { version = "0.19.0", features = ["vendored-libgit2"], default-features = false }
+anyhow = { workspace = true }
+cap-std = { workspace = true }
+clap = { workspace = true, features = ["derive", "env", "wrap_help"] }
+env_logger = { workspace = true }
+fn-error-context = { workspace = true }
+git2 = { workspace = true, features = ["vendored-libgit2"] }
 itertools = "0.13"
-log = "0.4.22"
-path-slash = "0.2.1"
-peg = "0.8.2"
-thiserror = "1.0.56"
-unicase = "2.7.0"
-url = "2.5.0"
-urlencoding = "2.1.3"
-phf = { version = "0.11.2", features = ["macros"] }
+log = { workspace = true }
+path-slash = { workspace = true }
+peg = { workspace = true }
+thiserror = { workspace = true }
+unicase = { workspace = true }
+url = { workspace = true }
+urlencoding = { workspace = true }
+phf = { workspace = true, features = ["macros"] }
 

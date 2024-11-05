@@ -4,6 +4,6 @@ version = "0.2.0"
 edition = "2021"
 
 [dependencies]
-anyhow = "1.0.79"
+anyhow = { workspace = true }
 itertools = "0.13"
-urlencoding = "2.1.3"
+urlencoding = { workspace = true }

@@ -5,11 +5,11 @@ edition = "2021"
 
 [dependencies]
 effectors = { path = "..", version = "0.2.0", package = "care-effectors" }
-anyhow = "1.0.79"
+anyhow = { workspace = true }
 itertools = "0.12.1"
-log = "0.4.22"
-path-slash = "0.2.1"
-tempfile = "3.9.0"
-url = "2.5.0"
-yaserde = { version = "0.10.0", features = ["yaserde_derive"] }
-xml-rs = "0.8.20"
+log = { workspace = true }
+path-slash = { workspace = true }
+tempfile = { workspace = true }
+url = { workspace = true }
+yaserde = { workspace = true, features = ["yaserde_derive"] }
+xml-rs = { workspace = true }
