@@ -35,10 +35,5 @@ function systemctl.touch(ospath)
   fh:close()
 end
 
-
-if arg then
-  require 'manaprotocol'.handle(systemctl)
-end
-
 return systemctl
 

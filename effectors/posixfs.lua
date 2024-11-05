@@ -45,9 +45,5 @@ function posixfs.mkdirp(ospath)
   os.execute("mkdir -p '" .. parent .. "'")
 end
 
-if arg then
-  require 'manaprotocol'.handle(posixfs)
-end
-
 return posixfs
 

@@ -73,9 +73,5 @@ function winpath.mkempty(ospath)
   assert(io.open(ospath, 'w')):close()
 end
 
-if arg then
-  require 'manaprotocol'.handle(winpath)
-end
-
 return winpath
 

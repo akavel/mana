@@ -63,9 +63,5 @@ function posixfiles.header(shadowpath)
   return header
 end
 
-if arg then
-  require 'manaprotocol'.handle(posixfiles.forroot(arg[1]))
-end
-
 return posixfiles
 

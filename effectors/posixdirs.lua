@@ -37,9 +37,5 @@ function posixdirs.osapply(ospath, shadowpath)
   assert(os.execute("chmod "..mode.." '"..ospath.."'"))
 end
 
-if arg then
-  require 'manaprotocol'.handle(posixdirs.forroot(arg[1]))
-end
-
 return posixdirs
 

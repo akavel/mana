@@ -122,9 +122,5 @@ function winfs.diskUUIDs()
   return map
 end
 
-if arg then
-  require 'manaprotocol'.handle(winfs.fordisk(arg[1]))
-end
-
 return winfs
 
