@@ -21,6 +21,7 @@ path = "src/main.rs"
 effectors = { path = "effectors", version = "0.2.0", package = "care-effectors" }
 f-lua = { path = "effectors/f-lua", version = "0.2.0", package = "care-ef-lua" }
 f-scp = { path = "effectors/f-scp", version = "0.2.0", package = "care-ef-scp" }
+f-zeroinstall = { path = "effectors/f-zeroinstall", version = "0.2.0", package = "care-ef-zeroinstall" }
 anyhow = "1.0.79"
 cap-std = "3.0.0"
 clap = "4.4.18"
@@ -50,7 +51,7 @@ itertools = "0.13.0"
 effectors = { workspace = true }
 f-lua = { workspace = true }
 f-scp = { workspace = true }
-f-zeroinstall = { path = "effectors/f-zeroinstall" }
+f-zeroinstall = { workspace = true }
 script = { path = "script" }
 anyhow = { workspace = true }
 cap-std = { workspace = true }
