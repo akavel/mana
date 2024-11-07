@@ -8,8 +8,10 @@ repository.workspace = true
 
 [dependencies]
 anyhow = { workspace = true }
-#assert_matches = "1.5.0" # TODO: replace with std when assert_matches stabilizes
 log = { workspace = true }
 parse_ncl = { workspace = true }
 thiserror = { workspace = true }
 toml = { workspace = true, features = ["preserve_order"] }
+
+[dev-dependencies]
+assert_matches.workspace = true # TODO: replace with std when assert_matches stabilizes

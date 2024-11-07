@@ -149,7 +149,6 @@ impl Script {
 }
 
 #[derive(Error, Debug)]
-#[cfg_attr(test, derive(PartialEq))]
 pub enum ValidationError {
     #[error("path `{0}` contains double slash `//`")]
     DoubleSlashInPath(String),
@@ -164,10 +163,7 @@ type ValidationResult = std::result::Result<(), ValidationError>;
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    fn s(string: &str) -> String {
-        string.to_string()
-    }
+    use assert_matches::assert_matches;
 
     #[test]
     fn validate_problems_in_paths() {
@@ -184,23 +180,23 @@ mod tests {
         }
 
         use ValidationError::*;
-        assert_eq!(vsp(["a/../b"]), Err(DoubleDotInPath(s("a/../b"))));
-        assert_eq!(vsp(["foo//bar"]), Err(DoubleSlashInPath(s("foo//bar"))));
-        assert_eq!(
+        assert_matches!(vsp(["a/../b"]), Err(DoubleDotInPath(s)) if &s == "a/../b");
+        assert_matches!(vsp(["foo//bar"]), Err(DoubleSlashInPath(s)) if &s == "foo//bar");
+        assert_matches!(
             vsp(["foo/bar//baz"]),
-            Err(DoubleSlashInPath(s("foo/bar//baz")))
+            Err(DoubleSlashInPath(s)) if &s == "foo/bar//baz"
         );
-        assert_eq!(
+        assert_matches!(
             vsp(["ok_a/ok_b", "foo/bar//baz"]),
-            Err(DoubleSlashInPath(s("foo/bar//baz")))
+            Err(DoubleSlashInPath(s)) if &s == "foo/bar//baz"
         );
-        assert_eq!(
+        assert_matches!(
             vsp(["ok_a/ok_b", "foo/bar/"]),
-            Err(TrailingSlashInPath(s("foo/bar/")))
+            Err(TrailingSlashInPath(s)) if &s == "foo/bar/"
         );
-        assert_eq!(
+        assert_matches!(
             vsp(["ok_a/ok_b", "foo/"]),
-            Err(TrailingSlashInPath(s("foo/")))
+            Err(TrailingSlashInPath(s)) if &s == "foo/"
         );
     }
 }
