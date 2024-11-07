@@ -147,13 +147,7 @@ fn check(script: Script) -> Result<()> {
         let found = effectors.detect(prefix, subpath)?;
         let shadow_path = PathBuf::from(&script.shadow_dir).join(PathBuf::from_slash(path));
         if !found {
-            let removal = std::fs::remove_file(shadow_path);
-            if let Err(ref err) = removal {
-                if err.kind() == std::io::ErrorKind::NotFound {
-                    continue;
-                }
-            }
-            _ = removal?;
+            std::fs::remove_file(shadow_path).or_else(ignore_err_not_found)?;
             continue;
         }
         effectors.gather(prefix, subpath, &script.shadow_dir)?;
@@ -300,6 +294,13 @@ fn split_effector_path(path: &str) -> (&str, &str) {
     let (start, rest) = path.split_at(idx);
     let (_slash, end) = rest.split_at(1);
     (start, end)
+}
+
+fn ignore_err_not_found<T: Default>(err: std::io::Error) -> Result<T, std::io::Error> {
+    if err.kind() == std::io::ErrorKind::NotFound {
+        return Ok(T::default());
+    }
+    Err(err)
 }
 
 // TODO: convert to iterator form
