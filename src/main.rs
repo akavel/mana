@@ -102,22 +102,16 @@ fn check(script: Script) -> Result<()> {
 
     // Make a list of paths in 'tree' and in git
     println!("care: Collecting paths in git");
-    let head = repo.head()?;
-    let head_tree = head.peel_to_tree()?;
     let mut paths = PathSet::new();
     // TODO: unicode normaliz.: https://stackoverflow.com/q/47813162/#comment82595250_47813878
     let mut case_insensitive_paths = std::collections::HashMap::<UniCase<String>, String>::new();
-    head_tree.walk(git2::TreeWalkMode::PreOrder, |root, entry| {
-        if entry.kind() == Some(git2::ObjectType::Blob) {
-            let name = entry.name().unwrap();
-            let slash_path = root.to_string() + name;
-            if script.ignores_path(&slash_path) {
-                return git2::TreeWalkResult::Skip;
-            }
-            // TODO: also check if entry already existed here
-            case_insensitive_paths.insert(slash_path.clone().into(), slash_path.clone());
-            paths.insert(slash_path);
+    git_walk_paths_pre_order(&repo, |slash_path| {
+        if script.ignores_path(&slash_path) {
+            return git2::TreeWalkResult::Skip;
         }
+        // TODO: also check if entry already existed here
+        case_insensitive_paths.insert(slash_path.clone().into(), slash_path.clone());
+        paths.insert(slash_path);
         git2::TreeWalkResult::Ok
     })?;
     // for k in &paths {
@@ -182,23 +176,17 @@ fn draft(script: Script) -> Result<()> {
     println!("care: Opening shadow repository");
     let repo = open_shadow_repo(&script)?;
     println!("care: Collecting paths in git");
-    let head = repo.head()?;
-    let head_tree = head.peel_to_tree()?;
     // TODO: unicode normaliz.: https://stackoverflow.com/q/47813162/#comment82595250_47813878
     //let mut case_insensitive_paths = std::collections::HashMap::<UniCase<String>, String>::new();
     let mut paths = PathSet::new();
-    head_tree.walk(git2::TreeWalkMode::PreOrder, |root, entry| {
-        if entry.kind() == Some(git2::ObjectType::Blob) {
-            let name = entry.name().unwrap();
-            let slash_path = root.to_string() + name;
-            if script.ignores_path(&slash_path) {
-                return git2::TreeWalkResult::Skip;
-            }
-            // FIXME: bring back case_insensitive_paths
-            // TODO: also check if entry already existed here
-            //case_insensitive_paths.insert(slash_path.clone().into(), slash_path.clone());
-            paths.insert(slash_path);
+    git_walk_paths_pre_order(&repo, |slash_path| {
+        if script.ignores_path(&slash_path) {
+            return git2::TreeWalkResult::Skip;
         }
+        // FIXME: bring back case_insensitive_paths
+        // TODO: also check if entry already existed here
+        //case_insensitive_paths.insert(slash_path.clone().into(), slash_path.clone());
+        paths.insert(slash_path);
         git2::TreeWalkResult::Ok
     })?;
 
@@ -312,4 +300,20 @@ fn split_effector_path(path: &str) -> (&str, &str) {
     let (start, rest) = path.split_at(idx);
     let (_slash, end) = rest.split_at(1);
     (start, end)
+}
+
+// TODO: convert to iterator form
+fn git_walk_paths_pre_order<C>(repo: &Repository, mut callback: C) -> Result<(), git2::Error>
+where
+    C: FnMut(String) -> git2::TreeWalkResult,
+{
+    let head = repo.head()?;
+    let head_tree = head.peel_to_tree()?;
+    head_tree.walk(git2::TreeWalkMode::PreOrder, |root, entry| {
+        if entry.kind() != Some(git2::ObjectType::Blob) {
+            return git2::TreeWalkResult::Ok;
+        }
+        let name = entry.name().unwrap();
+        callback(root.to_string() + name)
+    })
 }
