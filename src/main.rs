@@ -2,7 +2,6 @@ use anyhow::{bail, Context, Result};
 use cap_std::ambient_authority;
 use cap_std::fs::Dir;
 use clap::{Parser, Subcommand};
-use git2::Repository;
 use log::debug;
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
@@ -13,6 +12,7 @@ use unicase::UniCase;
 use script::Script;
 
 use care::effectors::{self, Effectors};
+use care::repo::Repo;
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -76,23 +76,11 @@ fn main() -> Result<()> {
     // TODO[LATER]: licensing information in --license flag
 }
 
-// open repo and verify it has no pending operation
-fn open_shadow_repo(script: &Script) -> Result<Repository> {
-    let repo = Repository::open(&script.shadow_dir).context("failure opening 'shadow_dir'")?;
-    if repo.state() != git2::RepositoryState::Clean {
-        bail!(
-            "git 'shadow_dir' repository has pending unfinished operation {:?}",
-            repo.state()
-        );
-    }
-    Ok(repo)
-}
-
 fn check(script: Script) -> Result<()> {
     println!("care: Opening shadow repository");
-    let repo = open_shadow_repo(&script)?;
+    let repo = Repo::open(&script.shadow_dir)?;
     // check if repo is clean
-    if !check_git_statuses_empty(&repo, &script.ignores)? {
+    if !repo.statuses_are_empty(&script.ignores)? {
         bail!("git 'shadow_dir' repository is not clean (see: git status)");
     }
 
@@ -105,7 +93,7 @@ fn check(script: Script) -> Result<()> {
     let mut paths = PathSet::new();
     // TODO: unicode normaliz.: https://stackoverflow.com/q/47813162/#comment82595250_47813878
     let mut case_insensitive_paths = std::collections::HashMap::<UniCase<String>, String>::new();
-    git_walk_paths_pre_order(&repo, |slash_path| {
+    repo.walk_paths_pre_order(|slash_path| {
         if script.ignores_path(&slash_path) {
             return git2::TreeWalkResult::Skip;
         }
@@ -154,7 +142,7 @@ fn check(script: Script) -> Result<()> {
     }
 
     // Two-way compare: current git <-> results of effectors.query
-    if !check_git_statuses_empty(&repo, &script.ignores)? {
+    if !repo.statuses_are_empty(&script.ignores)? {
         bail!(
             "real disk contents differ from expected prerequisites; check git diff in shadow repo: {:?}", script.shadow_dir,
         );
@@ -168,12 +156,12 @@ fn check(script: Script) -> Result<()> {
 fn draft(script: Script) -> Result<()> {
     // Make a list of paths in git
     println!("care: Opening shadow repository");
-    let repo = open_shadow_repo(&script)?;
+    let repo = Repo::open(&script.shadow_dir)?;
     println!("care: Collecting paths in git");
     // TODO: unicode normaliz.: https://stackoverflow.com/q/47813162/#comment82595250_47813878
     //let mut case_insensitive_paths = std::collections::HashMap::<UniCase<String>, String>::new();
     let mut paths = PathSet::new();
-    git_walk_paths_pre_order(&repo, |slash_path| {
+    repo.walk_paths_pre_order(|slash_path| {
         if script.ignores_path(&slash_path) {
             return git2::TreeWalkResult::Skip;
         }
@@ -217,7 +205,7 @@ fn draft(script: Script) -> Result<()> {
 
 fn apply(script: Script) -> Result<()> {
     println!("care: Opening shadow repository");
-    let repo = open_shadow_repo(&script)?;
+    let repo = Repo::open(&script.shadow_dir)?;
 
     // Initialize effectors
     println!("care: Starting effectors:");
@@ -227,13 +215,8 @@ fn apply(script: Script) -> Result<()> {
     // TODO: also iterate unmodified?
     println!("care: Collecting pending paths in git");
     let mut git_index = repo.index()?;
-    let mut stat_opt = git2::StatusOptions::new();
-    stat_opt.include_untracked(true);
-    stat_opt.recurse_untracked_dirs(true);
-    let statuses = repo.statuses(Some(&mut stat_opt))?;
-    // stat_opt.include_unmodified(true);
     println!("care: Affecting:");
-    for stat in &statuses {
+    for stat in &repo.all_pending()? {
         let Some(path) = stat.path() else {
             bail!(
                 "Path from 'git status' cannot be parsed as utf8: {:?}",
@@ -269,19 +252,6 @@ fn apply(script: Script) -> Result<()> {
 
 type PathSet = BTreeSet<String>;
 
-fn check_git_statuses_empty(
-    repo: &Repository,
-    ignores: impl IntoIterator<Item: AsRef<str>>,
-) -> Result<bool> {
-    let mut stat_opt = git2::StatusOptions::new();
-    stat_opt.include_untracked(true);
-    for ign in ignores {
-        stat_opt.pathspec("/".to_owned() + ign.as_ref());
-    }
-    let stat = repo.statuses(Some(&mut stat_opt))?;
-    Ok(stat.is_empty())
-}
-
 fn parent_dir(path: &Path) -> Option<&Path> {
     // can we simplify this somehow?
     path.parent().filter(|p| *p != Path::new(""))
@@ -301,20 +271,4 @@ fn ignore_err_not_found<T: Default>(err: std::io::Error) -> Result<T, std::io::E
         return Ok(T::default());
     }
     Err(err)
-}
-
-// TODO: convert to iterator form
-fn git_walk_paths_pre_order<C>(repo: &Repository, mut callback: C) -> Result<(), git2::Error>
-where
-    C: FnMut(String) -> git2::TreeWalkResult,
-{
-    let head = repo.head()?;
-    let head_tree = head.peel_to_tree()?;
-    head_tree.walk(git2::TreeWalkMode::PreOrder, |root, entry| {
-        if entry.kind() != Some(git2::ObjectType::Blob) {
-            return git2::TreeWalkResult::Ok;
-        }
-        let name = entry.name().unwrap();
-        callback(root.to_string() + name)
-    })
 }
