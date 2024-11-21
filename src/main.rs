@@ -33,13 +33,16 @@ struct Cli {
 enum Command {
     /// Check actual state of the machine and serialize it into git
     /// working directory at 'shadow_dir'.
+    #[command(alias = "c")]
     Check,
     /// Serialize desired state (as read from input) into git working
     /// directory at 'shadow_dir'.
+    #[command(alias = "d")]
     Draft,
     /// Apply the contents of the git working directory to the state
     /// of the machine. For each successfully applied file, perform
     /// `git add` on it.
+    #[command(alias = "a")]
     Apply,
 }
 
