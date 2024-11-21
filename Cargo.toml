@@ -40,7 +40,7 @@ fn-error-context = "0.2.1"
 git2 = { version = "0.19.0", default-features = false }
 log = "0.4.22"
 mlua = "0.9.4"
-nickel-lang-core = { version = "0.8.0", default-features = false }
+nickel-lang-core = { version = "0.10.0", default-features = false }
 path-slash = "0.2.1"
 peg = "0.8.2"
 phf = "0.11.2"
